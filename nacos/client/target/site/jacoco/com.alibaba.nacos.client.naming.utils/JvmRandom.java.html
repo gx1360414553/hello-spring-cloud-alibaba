@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JvmRandom.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.utils</a> &gt; <span class="el_source">JvmRandom.java</span></div><h1>JvmRandom.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * &quot;License&quot;); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package com.alibaba.nacos.client.naming.utils;
+
+import java.util.Random;
+
+/**
+ * &lt;p&gt;&lt;code&gt;JVMRandom&lt;/code&gt; is a wrapper that supports all possible Random methods via the {@link
+ * java.lang.Math#random()} method and its system-wide {@link Random} object.&lt;/p&gt;
+ * &lt;p&gt;
+ * It does this to allow for a Random class in which the seed is shared between all members of the class - a better name
+ * would have been SharedSeedRandom.
+ * &lt;p&gt;
+ * &lt;b&gt;N.B.&lt;/b&gt; the current implementation overrides the methods {@link Random#nextInt(int)} and {@link
+ * Random#nextLong()} to produce positive numbers ranging from 0 (inclusive) to MAX_VALUE (exclusive).
+ *
+ * @author unknown
+ * @version $Id: JVMRandom.java 911986 2010-02-19 21:19:05Z niallp $
+ * @since 2.0
+ */
+public final class JvmRandom extends Random {
+
+    /**
+     * Required for serialization support.
+     *
+     * @see java.io.Serializable
+     */
+    private static final long serialVersionUID = 1L;
+
+<span class="nc" id="L46">    private static final Random SHARED_RANDOM = new Random();</span>
+
+    /**
+     * Ensures that only the parent constructor can call reseed.
+     */
+<span class="nc" id="L51">    private boolean constructed = false;</span>
+
+    /**
+     * Constructs a new instance.
+     */
+<span class="nc" id="L56">    public JvmRandom() {</span>
+<span class="nc" id="L57">        this.constructed = true;</span>
+<span class="nc" id="L58">    }</span>
+
+    /**
+     * Unsupported in 2.0.
+     *
+     * @param seed ignored
+     * @throws UnsupportedOperationException
+     */
+    @Override
+    public synchronized void setSeed(long seed) {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        if (this.constructed) {</span>
+<span class="nc" id="L69">            throw new UnsupportedOperationException();</span>
+        }
+<span class="nc" id="L71">    }</span>
+
+    /**
+     * Unsupported in 2.0.
+     *
+     * @return Nothing, this method always throws an UnsupportedOperationException.
+     * @throws UnsupportedOperationException
+     */
+    @Override
+    public synchronized double nextGaussian() {
+<span class="nc" id="L81">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * Unsupported in 2.0.
+     *
+     * @param byteArray ignored
+     * @throws UnsupportedOperationException
+     */
+    @Override
+    public void nextBytes(byte[] byteArray) {
+<span class="nc" id="L92">        throw new UnsupportedOperationException();</span>
+    }
+
+    /**
+     * &lt;p&gt;Returns the next pseudorandom, uniformly distributed int value from the Math.random() sequence.&lt;/p&gt; Identical
+     * to &lt;code&gt;nextInt(Integer.MAX_VALUE)&lt;/code&gt; &lt;p&gt; &lt;b&gt;N.B. All values are &gt;= 0.&lt;b&gt; &lt;/p&gt;
+     *
+     * @return the random int
+     */
+    @Override
+    public int nextInt() {
+<span class="nc" id="L103">        return nextInt(Integer.MAX_VALUE);</span>
+    }
+
+    /**
+     * &lt;p&gt;Returns a pseudorandom, uniformly distributed int value between &lt;code&gt;0&lt;/code&gt; (inclusive) and the specified
+     * value (exclusive), from the Math.random() sequence.&lt;/p&gt;
+     *
+     * @param n the specified exclusive max-value
+     * @return the random int
+     * @throws IllegalArgumentException when &lt;code&gt;n &amp;lt;= 0&lt;/code&gt;
+     */
+    @Override
+    public int nextInt(int n) {
+<span class="nc" id="L116">        return SHARED_RANDOM.nextInt(n);</span>
+    }
+
+    /**
+     * &lt;p&gt;Returns the next pseudorandom, uniformly distributed long value from the Math.random() sequence.&lt;/p&gt; Identical
+     * to &lt;code&gt;nextLong(Long.MAX_VALUE)&lt;/code&gt; &lt;p&gt; &lt;b&gt;N.B. All values are &gt;= 0.&lt;b&gt; &lt;/p&gt;
+     *
+     * @return the random long
+     */
+    @Override
+    public long nextLong() {
+<span class="nc" id="L127">        return nextLong(Long.MAX_VALUE);</span>
+    }
+
+    /**
+     * &lt;p&gt;Returns a pseudorandom, uniformly distributed long value between &lt;code&gt;0&lt;/code&gt; (inclusive) and the specified
+     * value (exclusive), from the Math.random() sequence.&lt;/p&gt;
+     *
+     * @param n the specified exclusive max-value
+     * @return the random long
+     * @throws IllegalArgumentException when &lt;code&gt;n &amp;lt;= 0&lt;/code&gt;
+     */
+    public static long nextLong(long n) {
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (n &lt;= 0) {</span>
+<span class="nc" id="L140">            throw new IllegalArgumentException(</span>
+                &quot;Upper bound for nextInt must be positive&quot;
+            );
+        }
+        // Code adapted from Harmony Random#nextInt(int)
+        // n is power of 2
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if ((n &amp; -n) == n) {</span>
+            // dropping lower order bits improves behaviour for low values of n
+<span class="nc" id="L148">            return next63bits() &gt;&gt; 63</span>
+<span class="nc" id="L149">                - bitsRequired(n - 1);</span>
+        }
+        // Not a power of two
+        long val;
+        long bits;
+        // reject some values to improve distribution
+        do {
+<span class="nc" id="L156">            bits = next63bits();</span>
+<span class="nc" id="L157">            val = bits % n;</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        } while (bits - val + (n - 1) &lt; 0);</span>
+<span class="nc" id="L159">        return val;</span>
+    }
+
+    /**
+     * &lt;p&gt;Returns the next pseudorandom, uniformly distributed boolean value from the Math.random() sequence.&lt;/p&gt;
+     *
+     * @return the random boolean
+     */
+    @Override
+    public boolean nextBoolean() {
+<span class="nc" id="L169">        return SHARED_RANDOM.nextBoolean();</span>
+    }
+
+    /**
+     * &lt;p&gt;Returns the next pseudorandom, uniformly distributed float value between &lt;code&gt;0.0&lt;/code&gt; and &lt;code&gt;1.0&lt;/code&gt;
+     * from the Math.random() sequence.&lt;/p&gt;
+     *
+     * @return the random float
+     */
+    @Override
+    public float nextFloat() {
+<span class="nc" id="L180">        return SHARED_RANDOM.nextFloat();</span>
+    }
+
+    /**
+     * &lt;p&gt;Synonymous to the Math.random() call.&lt;/p&gt;
+     *
+     * @return the random double
+     */
+    @Override
+    public double nextDouble() {
+<span class="nc" id="L190">        return SHARED_RANDOM.nextDouble();</span>
+    }
+
+    /**
+     * Get the next unsigned random long
+     *
+     * @return unsigned random long
+     */
+    private static long next63bits() {
+        // drop the sign bit to leave 63 random bits
+<span class="nc" id="L200">        return SHARED_RANDOM.nextLong() &amp; 0x7fffffffffffffffL;</span>
+    }
+
+    /**
+     * Count the number of bits required to represent a long number.
+     *
+     * @param num long number
+     * @return number of bits required
+     */
+    private static int bitsRequired(long num) {
+        // Derived from Hacker's Delight, Figure 5-9
+<span class="nc" id="L211">        long y = num;</span>
+<span class="nc" id="L212">        int n = 0;</span>
+        while (true) {
+            // 64 = number of bits in a long
+<span class="nc bnc" id="L215" title="All 2 branches missed.">            if (num &lt; 0) {</span>
+<span class="nc" id="L216">                return 64 - n;</span>
+            }
+<span class="nc bnc" id="L218" title="All 2 branches missed.">            if (y == 0) {</span>
+<span class="nc" id="L219">                return n;</span>
+            }
+<span class="nc" id="L221">            n++;</span>
+<span class="nc" id="L222">            num = num &lt;&lt; 1;</span>
+<span class="nc" id="L223">            y = y &gt;&gt; 1;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

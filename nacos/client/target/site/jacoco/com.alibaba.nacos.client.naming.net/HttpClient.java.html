@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HttpClient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.net</a> &gt; <span class="el_source">HttpClient.java</span></div><h1>HttpClient.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.net;
+
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.client.naming.utils.IoUtils;
+import com.alibaba.nacos.client.utils.StringUtils;
+import com.google.common.net.HttpHeaders;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.*;
+import java.util.zip.GZIPInputStream;
+
+import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
+
+/**
+ * @author nkorange
+ */
+<span class="nc" id="L38">public class HttpClient {</span>
+
+<span class="nc" id="L40">    public static final int TIME_OUT_MILLIS = Integer</span>
+<span class="nc" id="L41">        .getInteger(&quot;com.alibaba.nacos.client.naming.ctimeout&quot;, 50000);</span>
+<span class="nc" id="L42">    public static final int CON_TIME_OUT_MILLIS = Integer</span>
+<span class="nc" id="L43">        .getInteger(&quot;com.alibaba.nacos.client.naming.ctimeout&quot;, 3000);</span>
+<span class="nc" id="L44">    private static final boolean ENABLE_HTTPS = Boolean</span>
+<span class="nc" id="L45">        .getBoolean(&quot;com.alibaba.nacos.client.naming.tls.enable&quot;);</span>
+
+    private static final String POST = &quot;POST&quot;;
+    private static final String PUT = &quot;PUT&quot;;
+
+    static {
+        // limit max redirection
+<span class="nc" id="L52">        System.setProperty(&quot;http.maxRedirects&quot;, &quot;5&quot;);</span>
+<span class="nc" id="L53">    }</span>
+
+    public static String getPrefix() {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if (ENABLE_HTTPS) {</span>
+<span class="nc" id="L57">            return &quot;https://&quot;;</span>
+        }
+
+<span class="nc" id="L60">        return &quot;http://&quot;;</span>
+
+    }
+
+    public static HttpResult httpGet(String url, List&lt;String&gt; headers, Map&lt;String, String&gt; paramValues, String encoding) {
+<span class="nc" id="L65">        return request(url, headers, paramValues, encoding, &quot;GET&quot;);</span>
+    }
+
+    public static HttpResult request(String url, List&lt;String&gt; headers, Map&lt;String, String&gt; paramValues, String encoding, String method) {
+<span class="nc" id="L69">        HttpURLConnection conn = null;</span>
+        try {
+<span class="nc" id="L71">            String encodedContent = encodingParams(paramValues, encoding);</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">            url += (StringUtils.isEmpty(encodedContent)) ? &quot;&quot; : (&quot;?&quot; + encodedContent);</span>
+
+<span class="nc" id="L74">            conn = (HttpURLConnection) new URL(url).openConnection();</span>
+
+<span class="nc" id="L76">            setHeaders(conn, headers, encoding);</span>
+<span class="nc" id="L77">            conn.setConnectTimeout(CON_TIME_OUT_MILLIS);</span>
+<span class="nc" id="L78">            conn.setReadTimeout(TIME_OUT_MILLIS);</span>
+<span class="nc" id="L79">            conn.setRequestMethod(method);</span>
+<span class="nc" id="L80">            conn.setDoOutput(true);</span>
+<span class="nc bnc" id="L81" title="All 4 branches missed.">            if (POST.equals(method) || PUT.equals(method)) {</span>
+                // fix: apache http nio framework must set some content to request body
+<span class="nc" id="L83">                byte[] b = encodedContent.getBytes();</span>
+<span class="nc" id="L84">                conn.setRequestProperty(&quot;Content-Length&quot;, String.valueOf(b.length));</span>
+<span class="nc" id="L85">                conn.getOutputStream().write(b, 0, b.length);</span>
+<span class="nc" id="L86">                conn.getOutputStream().flush();</span>
+<span class="nc" id="L87">                conn.getOutputStream().close();</span>
+            }
+<span class="nc" id="L89">            conn.connect();</span>
+<span class="nc" id="L90">            NAMING_LOGGER.debug(&quot;Request from server: &quot; + url);</span>
+<span class="nc" id="L91">            return getResult(conn);</span>
+<span class="nc" id="L92">        } catch (Exception e) {</span>
+            try {
+<span class="nc bnc" id="L94" title="All 2 branches missed.">                if (conn != null) {</span>
+<span class="nc" id="L95">                    NAMING_LOGGER.warn(&quot;failed to request &quot; + conn.getURL() + &quot; from &quot;</span>
+<span class="nc" id="L96">                        + InetAddress.getByName(conn.getURL().getHost()).getHostAddress());</span>
+                }
+<span class="nc" id="L98">            } catch (Exception e1) {</span>
+<span class="nc" id="L99">                NAMING_LOGGER.error(&quot;[NA] failed to request &quot;, e1);</span>
+                //ignore
+<span class="nc" id="L101">            }</span>
+
+<span class="nc" id="L103">            NAMING_LOGGER.error(&quot;[NA] failed to request &quot;, e);</span>
+
+<span class="nc" id="L105">            return new HttpResult(500, e.toString(), Collections.&lt;String, String&gt;emptyMap());</span>
+        } finally {
+<span class="nc bnc" id="L107" title="All 6 branches missed.">            if (conn != null) {</span>
+<span class="nc" id="L108">                conn.disconnect();</span>
+            }
+<span class="nc" id="L110">        }</span>
+    }
+
+    private static HttpResult getResult(HttpURLConnection conn) throws IOException {
+<span class="nc" id="L114">        int respCode = conn.getResponseCode();</span>
+
+        InputStream inputStream;
+<span class="nc bnc" id="L117" title="All 6 branches missed.">        if (HttpURLConnection.HTTP_OK == respCode</span>
+            || HttpURLConnection.HTTP_NOT_MODIFIED == respCode
+            || Constants.WRITE_REDIRECT_CODE == respCode) {
+<span class="nc" id="L120">            inputStream = conn.getInputStream();</span>
+        } else {
+<span class="nc" id="L122">            inputStream = conn.getErrorStream();</span>
+        }
+
+<span class="nc" id="L125">        Map&lt;String, String&gt; respHeaders = new HashMap&lt;String, String&gt;(conn.getHeaderFields().size());</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        for (Map.Entry&lt;String, List&lt;String&gt;&gt; entry : conn.getHeaderFields().entrySet()) {</span>
+<span class="nc" id="L127">            respHeaders.put(entry.getKey(), entry.getValue().get(0));</span>
+<span class="nc" id="L128">        }</span>
+
+<span class="nc" id="L130">        String encodingGzip = &quot;gzip&quot;;</span>
+
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        if (encodingGzip.equals(respHeaders.get(HttpHeaders.CONTENT_ENCODING))) {</span>
+<span class="nc" id="L133">            inputStream = new GZIPInputStream(inputStream);</span>
+        }
+
+<span class="nc" id="L136">        return new HttpResult(respCode, IoUtils.toString(inputStream, getCharset(conn)), respHeaders);</span>
+    }
+
+    private static String getCharset(HttpURLConnection conn) {
+<span class="nc" id="L140">        String contentType = conn.getContentType();</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        if (StringUtils.isEmpty(contentType)) {</span>
+<span class="nc" id="L142">            return &quot;UTF-8&quot;;</span>
+        }
+
+<span class="nc" id="L145">        String[] values = contentType.split(&quot;;&quot;);</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (values.length == 0) {</span>
+<span class="nc" id="L147">            return &quot;UTF-8&quot;;</span>
+        }
+
+<span class="nc" id="L150">        String charset = &quot;UTF-8&quot;;</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">        for (String value : values) {</span>
+<span class="nc" id="L152">            value = value.trim();</span>
+
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (value.toLowerCase().startsWith(&quot;charset=&quot;)) {</span>
+<span class="nc" id="L155">                charset = value.substring(&quot;charset=&quot;.length());</span>
+            }
+        }
+
+<span class="nc" id="L159">        return charset;</span>
+    }
+
+    private static void setHeaders(HttpURLConnection conn, List&lt;String&gt; headers, String encoding) {
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        if (null != headers) {</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">            for (Iterator&lt;String&gt; iter = headers.iterator(); iter.hasNext(); ) {</span>
+<span class="nc" id="L165">                conn.addRequestProperty(iter.next(), iter.next());</span>
+            }
+        }
+
+<span class="nc" id="L169">        conn.addRequestProperty(&quot;Content-Type&quot;, &quot;application/x-www-form-urlencoded;charset=&quot;</span>
+            + encoding);
+<span class="nc" id="L171">        conn.addRequestProperty(&quot;Accept-Charset&quot;, encoding);</span>
+<span class="nc" id="L172">    }</span>
+
+    private static String encodingParams(Map&lt;String, String&gt; params, String encoding)
+        throws UnsupportedEncodingException {
+<span class="nc bnc" id="L176" title="All 4 branches missed.">        if (null == params || params.isEmpty()) {</span>
+<span class="nc" id="L177">            return &quot;&quot;;</span>
+        }
+
+<span class="nc" id="L180">        params.put(&quot;encoding&quot;, encoding);</span>
+<span class="nc" id="L181">        StringBuilder sb = new StringBuilder();</span>
+
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        for (Map.Entry&lt;String, String&gt; entry : params.entrySet()) {</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">            if (StringUtils.isEmpty(entry.getValue())) {</span>
+<span class="nc" id="L185">                continue;</span>
+            }
+
+<span class="nc" id="L188">            sb.append(entry.getKey()).append(&quot;=&quot;);</span>
+<span class="nc" id="L189">            sb.append(URLEncoder.encode(entry.getValue(), encoding));</span>
+<span class="nc" id="L190">            sb.append(&quot;&amp;&quot;);</span>
+<span class="nc" id="L191">        }</span>
+
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (sb.length() &gt; 0) {</span>
+<span class="nc" id="L194">            sb = sb.deleteCharAt(sb.length() - 1);</span>
+        }
+<span class="nc" id="L196">        return sb.toString();</span>
+    }
+
+    public static class HttpResult {
+        final public int code;
+        final public String content;
+        final private Map&lt;String, String&gt; respHeaders;
+
+<span class="nc" id="L204">        public HttpResult(int code, String content, Map&lt;String, String&gt; respHeaders) {</span>
+<span class="nc" id="L205">            this.code = code;</span>
+<span class="nc" id="L206">            this.content = content;</span>
+<span class="nc" id="L207">            this.respHeaders = respHeaders;</span>
+<span class="nc" id="L208">        }</span>
+
+        public String getHeader(String name) {
+<span class="nc" id="L211">            return respHeaders.get(name);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

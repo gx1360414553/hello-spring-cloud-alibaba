@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UtilAndComs.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.utils</a> &gt; <span class="el_source">UtilAndComs.java</span></div><h1>UtilAndComs.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.utils;
+
+import com.alibaba.nacos.common.util.VersionUtils;
+
+/**
+ * @author xuanyin.zy
+ */
+<span class="nc" id="L23">public class UtilAndComs {</span>
+
+<span class="fc" id="L25">    public static final String VERSION = &quot;Nacos-Java-Client:v&quot; + VersionUtils.VERSION;</span>
+
+<span class="fc" id="L27">    public static String WEB_CONTEXT = &quot;/nacos&quot;;</span>
+
+<span class="fc" id="L29">    public static String NACOS_URL_BASE = WEB_CONTEXT + &quot;/v1/ns&quot;;</span>
+
+<span class="fc" id="L31">    public static String NACOS_URL_INSTANCE = NACOS_URL_BASE + &quot;/instance&quot;;</span>
+
+<span class="fc" id="L33">    public static String NACOS_URL_SERVICE = NACOS_URL_BASE + &quot;/service&quot;;</span>
+
+    public static final String ENCODING = &quot;UTF-8&quot;;
+
+    public static final String ENV_LIST_KEY = &quot;envList&quot;;
+
+    public static final String ALL_IPS = &quot;000--00-ALL_IPS--00--000&quot;;
+
+    public static final String FAILOVER_SWITCH = &quot;00-00---000-VIPSRV_FAILOVER_SWITCH-000---00-00&quot;;
+
+    public static final String DEFAULT_NAMESPACE_ID = &quot;public&quot;;
+
+    public static final int REQUEST_DOMAIN_RETRY_COUNT = 3;
+
+    public static final String NACOS_NAMING_LOG_NAME = &quot;com.alibaba.nacos.naming.log.filename&quot;;
+
+    public static final String NACOS_NAMING_LOG_LEVEL = &quot;com.alibaba.nacos.naming.log.level&quot;;
+
+    public static final String SERVER_ADDR_IP_SPLITER = &quot;:&quot;;
+
+<span class="fc" id="L53">    public static final int DEFAULT_CLIENT_BEAT_THREAD_COUNT = Runtime.getRuntime()</span>
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">        .availableProcessors() &gt; 1 ? Runtime.getRuntime().availableProcessors() / 2</span>
+        : 1;
+
+<span class="fc" id="L57">    public static final int DEFAULT_POLLING_THREAD_COUNT = Runtime.getRuntime()</span>
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">        .availableProcessors() &gt; 1 ? Runtime.getRuntime().availableProcessors() / 2</span>
+        : 1;
+
+    public static final String HTTP = &quot;http://&quot;;
+
+    public static final String HTTPS = &quot;https://&quot;;
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

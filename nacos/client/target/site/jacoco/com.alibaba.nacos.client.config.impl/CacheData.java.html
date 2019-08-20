@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CacheData.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.config.impl</a> &gt; <span class="el_source">CacheData.java</span></div><h1>CacheData.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.config.impl;
+
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.config.listener.AbstractSharedListener;
+import com.alibaba.nacos.api.config.listener.Listener;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.client.config.filter.impl.ConfigFilterChainManager;
+import com.alibaba.nacos.client.config.filter.impl.ConfigResponse;
+import com.alibaba.nacos.client.config.utils.MD5;
+import com.alibaba.nacos.client.utils.LogUtils;
+import com.alibaba.nacos.client.utils.TenantUtil;
+import org.slf4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+/**
+ * Listner Management
+ *
+ * @author Nacos
+ */
+public class CacheData {
+
+<span class="nc" id="L40">    private static final Logger LOGGER = LogUtils.logger(CacheData.class);</span>
+
+    public boolean isInitializing() {
+<span class="nc" id="L43">        return isInitializing;</span>
+    }
+
+    public void setInitializing(boolean isInitializing) {
+<span class="nc" id="L47">        this.isInitializing = isInitializing;</span>
+<span class="nc" id="L48">    }</span>
+
+    public String getMd5() {
+<span class="nc" id="L51">        return md5;</span>
+    }
+
+    public String getTenant() {
+<span class="nc" id="L55">        return tenant;</span>
+    }
+
+    public String getContent() {
+<span class="nc" id="L59">        return content;</span>
+    }
+
+    public void setContent(String newContent) {
+<span class="nc" id="L63">        this.content = newContent;</span>
+<span class="nc" id="L64">        this.md5 = getMd5String(content);</span>
+<span class="nc" id="L65">    }</span>
+
+    /**
+     * Add listener
+     * if CacheData already set new content, Listener should init lastCallMd5 by CacheData.md5
+     *
+     * @param listener listener
+     */
+    public void addListener(Listener listener) {
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (null == listener) {</span>
+<span class="nc" id="L75">            throw new IllegalArgumentException(&quot;listener is null&quot;);</span>
+        }
+<span class="nc" id="L77">        ManagerListenerWrap wrap = new ManagerListenerWrap(listener, md5);</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (listeners.addIfAbsent(wrap)) {</span>
+<span class="nc" id="L79">            LOGGER.info(&quot;[{}] [add-listener] ok, tenant={}, dataId={}, group={}, cnt={}&quot;, name, tenant, dataId, group,</span>
+<span class="nc" id="L80">                listeners.size());</span>
+        }
+<span class="nc" id="L82">    }</span>
+
+    public void removeListener(Listener listener) {
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (null == listener) {</span>
+<span class="nc" id="L86">            throw new IllegalArgumentException(&quot;listener is null&quot;);</span>
+        }
+<span class="nc" id="L88">        ManagerListenerWrap wrap = new ManagerListenerWrap(listener);</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">        if (listeners.remove(wrap)) {</span>
+<span class="nc" id="L90">            LOGGER.info(&quot;[{}] [remove-listener] ok, dataId={}, group={}, cnt={}&quot;, name, dataId, group, listeners.size());</span>
+        }
+<span class="nc" id="L92">    }</span>
+
+    /**
+     * 返回监听器列表上的迭代器，只读。保证不返回NULL。
+     */
+    public List&lt;Listener&gt; getListeners() {
+<span class="nc" id="L98">        List&lt;Listener&gt; result = new ArrayList&lt;Listener&gt;();</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        for (ManagerListenerWrap wrap : listeners) {</span>
+<span class="nc" id="L100">            result.add(wrap.listener);</span>
+<span class="nc" id="L101">        }</span>
+<span class="nc" id="L102">        return result;</span>
+    }
+
+    public long getLocalConfigInfoVersion() {
+<span class="nc" id="L106">        return localConfigLastModified;</span>
+    }
+
+    public void setLocalConfigInfoVersion(long localConfigLastModified) {
+<span class="nc" id="L110">        this.localConfigLastModified = localConfigLastModified;</span>
+<span class="nc" id="L111">    }</span>
+
+    public boolean isUseLocalConfigInfo() {
+<span class="nc" id="L114">        return isUseLocalConfig;</span>
+    }
+
+    public void setUseLocalConfigInfo(boolean useLocalConfigInfo) {
+<span class="nc" id="L118">        this.isUseLocalConfig = useLocalConfigInfo;</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (!useLocalConfigInfo) {</span>
+<span class="nc" id="L120">            localConfigLastModified = -1;</span>
+        }
+<span class="nc" id="L122">    }</span>
+
+    public int getTaskId() {
+<span class="nc" id="L125">        return taskId;</span>
+    }
+
+    public void setTaskId(int taskId) {
+<span class="nc" id="L129">        this.taskId = taskId;</span>
+<span class="nc" id="L130">    }</span>
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L134">        final int prime = 31;</span>
+<span class="nc" id="L135">        int result = 1;</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        result = prime * result + ((dataId == null) ? 0 : dataId.hashCode());</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        result = prime * result + ((group == null) ? 0 : group.hashCode());</span>
+<span class="nc" id="L138">        return result;</span>
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L143" title="All 4 branches missed.">        if (null == obj || obj.getClass() != getClass()) {</span>
+<span class="nc" id="L144">            return false;</span>
+        }
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (this == obj) {</span>
+<span class="nc" id="L147">            return true;</span>
+        }
+<span class="nc" id="L149">        CacheData other = (CacheData) obj;</span>
+<span class="nc bnc" id="L150" title="All 4 branches missed.">        return dataId.equals(other.dataId) &amp;&amp; group.equals(other.group);</span>
+    }
+
+    @Override
+    public String toString() {
+<span class="nc" id="L155">        return &quot;CacheData [&quot; + dataId + &quot;, &quot; + group + &quot;]&quot;;</span>
+    }
+
+    void checkListenerMd5() {
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        for (ManagerListenerWrap wrap : listeners) {</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            if (!md5.equals(wrap.lastCallMd5)) {</span>
+<span class="nc" id="L161">                safeNotifyListener(dataId, group, content, md5, wrap);</span>
+            }
+<span class="nc" id="L163">        }</span>
+<span class="nc" id="L164">    }</span>
+
+    private void safeNotifyListener(final String dataId, final String group, final String content,
+                                    final String md5, final ManagerListenerWrap listenerWrap) {
+<span class="nc" id="L168">        final Listener listener = listenerWrap.listener;</span>
+
+<span class="nc" id="L170">        Runnable job = new Runnable() {</span>
+            @Override
+            public void run() {
+<span class="nc" id="L173">                ClassLoader myClassLoader = Thread.currentThread().getContextClassLoader();</span>
+<span class="nc" id="L174">                ClassLoader appClassLoader = listener.getClass().getClassLoader();</span>
+                try {
+<span class="nc bnc" id="L176" title="All 2 branches missed.">                    if (listener instanceof AbstractSharedListener) {</span>
+<span class="nc" id="L177">                        AbstractSharedListener adapter = (AbstractSharedListener) listener;</span>
+<span class="nc" id="L178">                        adapter.fillContext(dataId, group);</span>
+<span class="nc" id="L179">                        LOGGER.info(&quot;[{}] [notify-context] dataId={}, group={}, md5={}&quot;, name, dataId, group, md5);</span>
+                    }
+                    // 执行回调之前先将线程classloader设置为具体webapp的classloader，以免回调方法中调用spi接口是出现异常或错用（多应用部署才会有该问题）。
+<span class="nc" id="L182">                    Thread.currentThread().setContextClassLoader(appClassLoader);</span>
+
+<span class="nc" id="L184">                    ConfigResponse cr = new ConfigResponse();</span>
+<span class="nc" id="L185">                    cr.setDataId(dataId);</span>
+<span class="nc" id="L186">                    cr.setGroup(group);</span>
+<span class="nc" id="L187">                    cr.setContent(content);</span>
+<span class="nc" id="L188">                    configFilterChainManager.doFilter(null, cr);</span>
+<span class="nc" id="L189">                    String contentTmp = cr.getContent();</span>
+<span class="nc" id="L190">                    listener.receiveConfigInfo(contentTmp);</span>
+<span class="nc" id="L191">                    listenerWrap.lastCallMd5 = md5;</span>
+<span class="nc" id="L192">                    LOGGER.info(&quot;[{}] [notify-ok] dataId={}, group={}, md5={}, listener={} &quot;, name, dataId, group, md5,</span>
+                        listener);
+<span class="nc" id="L194">                } catch (NacosException de) {</span>
+<span class="nc" id="L195">                    LOGGER.error(&quot;[{}] [notify-error] dataId={}, group={}, md5={}, listener={} errCode={} errMsg={}&quot;, name,</span>
+<span class="nc" id="L196">                        dataId, group, md5, listener, de.getErrCode(), de.getErrMsg());</span>
+<span class="nc" id="L197">                } catch (Throwable t) {</span>
+<span class="nc" id="L198">                    LOGGER.error(&quot;[{}] [notify-error] dataId={}, group={}, md5={}, listener={} tx={}&quot;, name, dataId, group,</span>
+<span class="nc" id="L199">                        md5, listener, t.getCause());</span>
+                } finally {
+<span class="nc" id="L201">                    Thread.currentThread().setContextClassLoader(myClassLoader);</span>
+<span class="nc" id="L202">                }</span>
+<span class="nc" id="L203">            }</span>
+        };
+
+<span class="nc" id="L206">        final long startNotify = System.currentTimeMillis();</span>
+        try {
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            if (null != listener.getExecutor()) {</span>
+<span class="nc" id="L209">                listener.getExecutor().execute(job);</span>
+            } else {
+<span class="nc" id="L211">                job.run();</span>
+            }
+<span class="nc" id="L213">        } catch (Throwable t) {</span>
+<span class="nc" id="L214">            LOGGER.error(&quot;[{}] [notify-error] dataId={}, group={}, md5={}, listener={} throwable={}&quot;, name, dataId, group,</span>
+<span class="nc" id="L215">                md5, listener, t.getCause());</span>
+<span class="nc" id="L216">        }</span>
+<span class="nc" id="L217">        final long finishNotify = System.currentTimeMillis();</span>
+<span class="nc" id="L218">        LOGGER.info(&quot;[{}] [notify-listener] time cost={}ms in ClientWorker, dataId={}, group={}, md5={}, listener={} &quot;,</span>
+<span class="nc" id="L219">            name, (finishNotify - startNotify), dataId, group, md5, listener);</span>
+<span class="nc" id="L220">    }</span>
+
+    static public String getMd5String(String config) {
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        return (null == config) ? Constants.NULL : MD5.getInstance().getMD5String(config);</span>
+    }
+
+    private String loadCacheContentFromDiskLocal(String name, String dataId, String group, String tenant) {
+<span class="nc" id="L227">        String content = LocalConfigInfoProcessor.getFailover(name, dataId, group, tenant);</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">        content = (null != content) ? content</span>
+<span class="nc" id="L229">            : LocalConfigInfoProcessor.getSnapshot(name, dataId, group, tenant);</span>
+<span class="nc" id="L230">        return content;</span>
+    }
+
+<span class="nc" id="L233">    public CacheData(ConfigFilterChainManager configFilterChainManager, String name, String dataId, String group) {</span>
+<span class="nc bnc" id="L234" title="All 4 branches missed.">        if (null == dataId || null == group) {</span>
+<span class="nc" id="L235">            throw new IllegalArgumentException(&quot;dataId=&quot; + dataId + &quot;, group=&quot; + group);</span>
+        }
+<span class="nc" id="L237">        this.name = name;</span>
+<span class="nc" id="L238">        this.configFilterChainManager = configFilterChainManager;</span>
+<span class="nc" id="L239">        this.dataId = dataId;</span>
+<span class="nc" id="L240">        this.group = group;</span>
+<span class="nc" id="L241">        this.tenant = TenantUtil.getUserTenantForAcm();</span>
+<span class="nc" id="L242">        listeners = new CopyOnWriteArrayList&lt;ManagerListenerWrap&gt;();</span>
+<span class="nc" id="L243">        this.isInitializing = true;</span>
+<span class="nc" id="L244">        this.content = loadCacheContentFromDiskLocal(name, dataId, group, tenant);</span>
+<span class="nc" id="L245">        this.md5 = getMd5String(content);</span>
+<span class="nc" id="L246">    }</span>
+
+    public CacheData(ConfigFilterChainManager configFilterChainManager, String name, String dataId, String group,
+<span class="nc" id="L249">                     String tenant) {</span>
+<span class="nc bnc" id="L250" title="All 4 branches missed.">        if (null == dataId || null == group) {</span>
+<span class="nc" id="L251">            throw new IllegalArgumentException(&quot;dataId=&quot; + dataId + &quot;, group=&quot; + group);</span>
+        }
+<span class="nc" id="L253">        this.name = name;</span>
+<span class="nc" id="L254">        this.configFilterChainManager = configFilterChainManager;</span>
+<span class="nc" id="L255">        this.dataId = dataId;</span>
+<span class="nc" id="L256">        this.group = group;</span>
+<span class="nc" id="L257">        this.tenant = tenant;</span>
+<span class="nc" id="L258">        listeners = new CopyOnWriteArrayList&lt;ManagerListenerWrap&gt;();</span>
+<span class="nc" id="L259">        this.isInitializing = true;</span>
+<span class="nc" id="L260">        this.content = loadCacheContentFromDiskLocal(name, dataId, group, tenant);</span>
+<span class="nc" id="L261">        this.md5 = getMd5String(content);</span>
+<span class="nc" id="L262">    }</span>
+
+    // ==================
+
+    private final String name;
+    private final ConfigFilterChainManager configFilterChainManager;
+    public final String dataId;
+    public final String group;
+    public final String tenant;
+    private final CopyOnWriteArrayList&lt;ManagerListenerWrap&gt; listeners;
+
+    private volatile String md5;
+    /**
+     * whether use local config
+     */
+<span class="nc" id="L277">    private volatile boolean isUseLocalConfig = false;</span>
+    /**
+     * last modify time
+     */
+    private volatile long localConfigLastModified;
+    private volatile String content;
+    private int taskId;
+<span class="nc" id="L284">    private volatile boolean isInitializing = true;</span>
+}
+
+class ManagerListenerWrap {
+    final Listener listener;
+<span class="nc" id="L289">    String lastCallMd5 = CacheData.getMd5String(null);</span>
+
+<span class="nc" id="L291">    ManagerListenerWrap(Listener listener) {</span>
+<span class="nc" id="L292">        this.listener = listener;</span>
+<span class="nc" id="L293">    }</span>
+
+<span class="nc" id="L295">    ManagerListenerWrap(Listener listener, String md5) {</span>
+<span class="nc" id="L296">        this.listener = listener;</span>
+<span class="nc" id="L297">        this.lastCallMd5 = md5;</span>
+<span class="nc" id="L298">    }</span>
+
+    @Override
+    public boolean equals(Object obj) {
+<span class="nc bnc" id="L302" title="All 4 branches missed.">        if (null == obj || obj.getClass() != getClass()) {</span>
+<span class="nc" id="L303">            return false;</span>
+        }
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (obj == this) {</span>
+<span class="nc" id="L306">            return true;</span>
+        }
+<span class="nc" id="L308">        ManagerListenerWrap other = (ManagerListenerWrap) obj;</span>
+<span class="nc" id="L309">        return listener.equals(other.listener);</span>
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L314">        return super.hashCode();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

@@ -1,0 +1,8 @@
+com\alibaba\nacos\address\AddressServer.class
+com\alibaba\nacos\address\util\AddressServerParamCheckUtil.class
+com\alibaba\nacos\address\controller\AddressServerClusterController.class
+com\alibaba\nacos\address\controller\ServerListController.class
+com\alibaba\nacos\address\constant\AddressServerConstants.class
+com\alibaba\nacos\address\component\AddressServerGeneratorManager.class
+com\alibaba\nacos\address\component\AddressServerManager.class
+com\alibaba\nacos\address\misc\Loggers.class

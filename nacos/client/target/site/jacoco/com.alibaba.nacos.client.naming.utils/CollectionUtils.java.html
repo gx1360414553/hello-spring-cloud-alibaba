@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CollectionUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.utils</a> &gt; <span class="el_source">CollectionUtils.java</span></div><h1>CollectionUtils.java</h1><pre class="source lang-java linenums">/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *  contributor license agreements.  See the NOTICE file distributed with
+ *  this work for additional information regarding copyright ownership.
+ *  The ASF licenses this file to You under the Apache License, Version 2.0
+ *  (the &quot;License&quot;); you may not use this file except in compliance with
+ *  the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.utils;
+
+/**
+ * Created by harold on 2015/12/7.
+ */
+
+import java.util.*;
+
+/**
+ * Provides utility methods and decorators for {@link Collection} instances.
+ *
+ * @author Rodney Waldhoff
+ * @author Paul Jack
+ * @author Stephen Colebourne
+ * @author Steve Downey
+ * @author Herve Quiroz
+ * @author Peter KoBek
+ * @author Matthew Hawthorne
+ * @author Janek Bogucki
+ * @author Phil Steitz
+ * @author Steven Melzer
+ * @author Jon Schewe
+ * @author Neil O'Toole
+ * @author Stephen Smith
+ * @version $Revision: 1713167 $ $Date: 2015-11-07 20:44:03 +0100 (Sat, 07 Nov 2015) $
+ * @since Commons Collections 1.0
+ */
+public class CollectionUtils {
+
+    /**
+     * Constant to avoid repeated object creation
+     */
+<span class="nc" id="L49">    private static final Integer INTEGER_ONE = 1;</span>
+
+    /**
+     * &lt;code&gt;CollectionUtils&lt;/code&gt; should not normally be instantiated.
+     */
+<span class="nc" id="L54">    public CollectionUtils() {</span>
+<span class="nc" id="L55">    }</span>
+
+    /**
+     * Returns a new {@link Collection} containing &lt;tt&gt;&lt;i&gt;a&lt;/i&gt; - &lt;i&gt;b&lt;/i&gt;&lt;/tt&gt;. The cardinality of each element
+     * &lt;i&gt;e&lt;/i&gt; in the returned {@link Collection} will be the cardinality of &lt;i&gt;e&lt;/i&gt; in &lt;i&gt;a&lt;/i&gt; minus the cardinality
+     * of &lt;i&gt;e&lt;/i&gt; in &lt;i&gt;b&lt;/i&gt;, or zero, whichever is greater.
+     *
+     * @param a the collection to subtract from, must not be null
+     * @param b the collection to subtract, must not be null
+     * @return a new collection with the results
+     * @see Collection#removeAll
+     */
+    public static Collection subtract(final Collection a, final Collection b) {
+<span class="nc" id="L68">        ArrayList list = new ArrayList(a);</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        for (Iterator it = b.iterator(); it.hasNext(); ) {</span>
+<span class="nc" id="L70">            list.remove(it.next());</span>
+        }
+<span class="nc" id="L72">        return list;</span>
+    }
+
+    /**
+     * Returns a {@link Map} mapping each unique element in the given {@link Collection} to an {@link Integer}
+     * representing the number of occurrences of that element in the {@link Collection}.
+     * &lt;p&gt;
+     * Only those elements present in the collection will appear as keys in the map.
+     *
+     * @param coll the collection to get the cardinality map for, must not be null
+     * @return the populated cardinality map
+     */
+    public static Map getCardinalityMap(final Collection coll) {
+<span class="nc" id="L85">        Map count = new HashMap(coll.size());</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        for (Iterator it = coll.iterator(); it.hasNext(); ) {</span>
+<span class="nc" id="L87">            Object obj = it.next();</span>
+<span class="nc" id="L88">            Integer c = (Integer)(count.get(obj));</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            if (c == null) {</span>
+<span class="nc" id="L90">                count.put(obj, INTEGER_ONE);</span>
+            } else {
+<span class="nc" id="L92">                count.put(obj, c + 1);</span>
+            }
+<span class="nc" id="L94">        }</span>
+<span class="nc" id="L95">        return count;</span>
+    }
+
+    /**
+     * Returns &lt;tt&gt;true&lt;/tt&gt; iff the given {@link Collection}s contain exactly the same elements with exactly the same
+     * cardinalities.
+     * &lt;p&gt;
+     * That is, iff the cardinality of &lt;i&gt;e&lt;/i&gt; in &lt;i&gt;a&lt;/i&gt; is equal to the cardinality of &lt;i&gt;e&lt;/i&gt; in &lt;i&gt;b&lt;/i&gt;, for
+     * each element &lt;i&gt;e&lt;/i&gt; in &lt;i&gt;a&lt;/i&gt; or &lt;i&gt;b&lt;/i&gt;.
+     *
+     * @param a the first collection, must not be null
+     * @param b the second collection, must not be null
+     * @return &lt;code&gt;true&lt;/code&gt; iff the collections contain the same elements with the same cardinalities.
+     */
+    public static boolean isEqualCollection(final Collection a, final Collection b) {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (a.size() != b.size()) {</span>
+<span class="nc" id="L111">            return false;</span>
+        } else {
+<span class="nc" id="L113">            Map mapa = getCardinalityMap(a);</span>
+<span class="nc" id="L114">            Map mapb = getCardinalityMap(b);</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            if (mapa.size() != mapb.size()) {</span>
+<span class="nc" id="L116">                return false;</span>
+            } else {
+<span class="nc" id="L118">                Iterator it = mapa.keySet().iterator();</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">                while (it.hasNext()) {</span>
+<span class="nc" id="L120">                    Object obj = it.next();</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">                    if (getFreq(obj, mapa) != getFreq(obj, mapb)) {</span>
+<span class="nc" id="L122">                        return false;</span>
+                    }
+<span class="nc" id="L124">                }</span>
+<span class="nc" id="L125">                return true;</span>
+            }
+        }
+    }
+
+    //-----------------------------------------------------------------------
+
+    /**
+     * Null-safe check if the specified collection is empty.
+     * &lt;p&gt;
+     * Null returns true.
+     *
+     * @param coll the collection to check, may be null
+     * @return true if empty or null
+     * @since Commons Collections 3.2
+     */
+    public static boolean isEmpty(Collection coll) {
+<span class="nc bnc" id="L142" title="All 4 branches missed.">        return (coll == null || coll.isEmpty());</span>
+    }
+
+    private static int getFreq(final Object obj, final Map freqMap) {
+<span class="nc" id="L146">        Integer count = (Integer)freqMap.get(obj);</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (count != null) {</span>
+<span class="nc" id="L148">            return count.intValue();</span>
+        }
+<span class="nc" id="L150">        return 0;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Chooser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.utils</a> &gt; <span class="el_source">Chooser.java</span></div><h1>Chooser.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.utils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+/**
+ * @author nkorange
+ */
+public class Chooser&lt;K, T&gt; {
+
+    private K uniqueKey;
+
+    private volatile Ref&lt;T&gt; ref;
+
+    public T random() {
+<span class="nc" id="L32">        List&lt;T&gt; items = ref.items;</span>
+<span class="nc bnc" id="L33" title="All 2 branches missed.">        if (items.size() == 0) {</span>
+<span class="nc" id="L34">            return null;</span>
+        }
+<span class="nc bnc" id="L36" title="All 2 branches missed.">        if (items.size() == 1) {</span>
+<span class="nc" id="L37">            return items.get(0);</span>
+        }
+<span class="nc" id="L39">        return items.get(ThreadLocalRandom.current().nextInt(items.size()));</span>
+    }
+
+    public T randomWithWeight() {
+<span class="nc" id="L43">        Ref&lt;T&gt; ref = this.ref;</span>
+<span class="nc" id="L44">        double random = ThreadLocalRandom.current().nextDouble(0, 1);</span>
+<span class="nc" id="L45">        int index = Arrays.binarySearch(ref.weights, random);</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        if (index &lt; 0) {</span>
+<span class="nc" id="L47">            index = -index - 1;</span>
+        } else {
+<span class="nc" id="L49">            return ref.items.get(index);</span>
+        }
+
+<span class="nc bnc" id="L52" title="All 4 branches missed.">        if (index &gt;= 0 &amp;&amp; index &lt; ref.weights.length) {</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">            if (random &lt; ref.weights[index]) {</span>
+<span class="nc" id="L54">                return ref.items.get(index);</span>
+            }
+        }
+
+        /* This should never happen, but it ensures we will return a correct
+         * object in case there is some floating point inequality problem
+         * wrt the cumulative probabilities. */
+<span class="nc" id="L61">        return ref.items.get(ref.items.size() - 1);</span>
+    }
+
+    public Chooser(K uniqueKey) {
+<span class="nc" id="L65">        this(uniqueKey, new ArrayList&lt;Pair&lt;T&gt;&gt;());</span>
+<span class="nc" id="L66">    }</span>
+
+<span class="nc" id="L68">    public Chooser(K uniqueKey, List&lt;Pair&lt;T&gt;&gt; pairs) {</span>
+<span class="nc" id="L69">        Ref&lt;T&gt; ref = new Ref&lt;T&gt;(pairs);</span>
+<span class="nc" id="L70">        ref.refresh();</span>
+<span class="nc" id="L71">        this.uniqueKey = uniqueKey;</span>
+<span class="nc" id="L72">        this.ref = ref;</span>
+<span class="nc" id="L73">    }</span>
+
+    public K getUniqueKey() {
+<span class="nc" id="L76">        return uniqueKey;</span>
+    }
+
+    public Ref&lt;T&gt; getRef() {
+<span class="nc" id="L80">        return ref;</span>
+    }
+
+    public void refresh(List&lt;Pair&lt;T&gt;&gt; itemsWithWeight) {
+<span class="nc" id="L84">        Ref&lt;T&gt; newRef = new Ref&lt;T&gt;(itemsWithWeight);</span>
+<span class="nc" id="L85">        newRef.refresh();</span>
+<span class="nc" id="L86">        newRef.poller = this.ref.poller.refresh(newRef.items);</span>
+<span class="nc" id="L87">        this.ref = newRef;</span>
+<span class="nc" id="L88">    }</span>
+
+    public class Ref&lt;T&gt; {
+<span class="nc" id="L91">        private List&lt;Pair&lt;T&gt;&gt; itemsWithWeight = new ArrayList&lt;Pair&lt;T&gt;&gt;();</span>
+<span class="nc" id="L92">        private List&lt;T&gt; items = new ArrayList&lt;T&gt;();</span>
+<span class="nc" id="L93">        private Poller&lt;T&gt; poller = new GenericPoller&lt;T&gt;(items);</span>
+        private double[] weights;
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L97">        public Ref(List&lt;Pair&lt;T&gt;&gt; itemsWithWeight) {</span>
+<span class="nc" id="L98">            this.itemsWithWeight = itemsWithWeight;</span>
+<span class="nc" id="L99">        }</span>
+
+        public void refresh() {
+<span class="nc" id="L102">            Double originWeightSum = (double) 0;</span>
+
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            for (Pair&lt;T&gt; item : itemsWithWeight) {</span>
+
+<span class="nc" id="L106">                double weight = item.weight();</span>
+                //ignore item which weight is zero.see test_randomWithWeight_weight0 in ChooserTest
+<span class="nc bnc" id="L108" title="All 2 branches missed.">                if (weight &lt;= 0) {</span>
+<span class="nc" id="L109">                    continue;</span>
+                }
+
+<span class="nc" id="L112">                items.add(item.item());</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">                if (Double.isInfinite(weight)) {</span>
+<span class="nc" id="L114">                    weight = 10000.0D;</span>
+                }
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                if (Double.isNaN(weight)) {</span>
+<span class="nc" id="L117">                    weight = 1.0D;</span>
+                }
+<span class="nc" id="L119">                originWeightSum += weight;</span>
+<span class="nc" id="L120">            }</span>
+
+<span class="nc" id="L122">            double[] exactWeights = new double[items.size()];</span>
+<span class="nc" id="L123">            int index = 0;</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            for (Pair&lt;T&gt; item : itemsWithWeight) {</span>
+<span class="nc" id="L125">                double singleWeight = item.weight();</span>
+                //ignore item which weight is zero.see test_randomWithWeight_weight0 in ChooserTest
+<span class="nc bnc" id="L127" title="All 2 branches missed.">                if (singleWeight &lt;= 0) {</span>
+<span class="nc" id="L128">                    continue;</span>
+                }
+<span class="nc" id="L130">                exactWeights[index++] = singleWeight / originWeightSum;</span>
+<span class="nc" id="L131">            }</span>
+
+<span class="nc" id="L133">            weights = new double[items.size()];</span>
+<span class="nc" id="L134">            double randomRange = 0D;</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            for (int i = 0; i &lt; index; i++) {</span>
+<span class="nc" id="L136">                weights[i] = randomRange + exactWeights[i];</span>
+<span class="nc" id="L137">                randomRange += exactWeights[i];</span>
+            }
+
+<span class="nc" id="L140">            double doublePrecisionDelta = 0.0001;</span>
+
+<span class="nc bnc" id="L142" title="All 4 branches missed.">            if (index == 0 || (Math.abs(weights[index - 1] - 1) &lt; doublePrecisionDelta)) {</span>
+<span class="nc" id="L143">                return;</span>
+            }
+<span class="nc" id="L145">            throw new IllegalStateException(&quot;Cumulative Weight caculate wrong , the sum of probabilities does not equals 1.&quot;);</span>
+        }
+
+        @Override
+        public int hashCode() {
+<span class="nc" id="L150">            return itemsWithWeight.hashCode();</span>
+        }
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        @Override
+        public boolean equals(Object other) {
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (this == other) {</span>
+<span class="nc" id="L157">                return true;</span>
+            }
+<span class="nc bnc" id="L159" title="All 2 branches missed.">            if (other == null) {</span>
+<span class="nc" id="L160">                return false;</span>
+            }
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            if (getClass() != other.getClass()) {</span>
+<span class="nc" id="L163">                return false;</span>
+            }
+<span class="nc bnc" id="L165" title="All 2 branches missed.">            if (!(other.getClass().getGenericInterfaces()[0].equals(this.getClass().getGenericInterfaces()[0]))) {</span>
+<span class="nc" id="L166">                return false;</span>
+            }
+<span class="nc" id="L168">            Ref&lt;T&gt; otherRef = (Ref&lt;T&gt;) other;</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">            if (itemsWithWeight == null) {</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                if (otherRef.itemsWithWeight != null) {</span>
+<span class="nc" id="L171">                    return false;</span>
+                }
+            } else {
+<span class="nc bnc" id="L174" title="All 2 branches missed.">                if (otherRef.itemsWithWeight == null) {</span>
+<span class="nc" id="L175">                    return false;</span>
+                } else {
+<span class="nc" id="L177">                    return this.itemsWithWeight.equals(otherRef.itemsWithWeight);</span>
+                }
+            }
+<span class="nc" id="L180">            return true;</span>
+        }
+    }
+
+    @Override
+    public int hashCode() {
+<span class="nc" id="L186">        return uniqueKey.hashCode();</span>
+    }
+
+    @Override
+    public boolean equals(Object other) {
+<span class="nc bnc" id="L191" title="All 2 branches missed.">        if (this == other) {</span>
+<span class="nc" id="L192">            return true;</span>
+        }
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        if (other == null) {</span>
+<span class="nc" id="L195">            return false;</span>
+        }
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        if (getClass() != other.getClass()) {</span>
+<span class="nc" id="L198">            return false;</span>
+        }
+
+<span class="nc" id="L201">        Chooser otherChooser = (Chooser) other;</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        if (this.uniqueKey == null) {</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">            if (otherChooser.getUniqueKey() != null) {</span>
+<span class="nc" id="L204">                return false;</span>
+            }
+        } else {
+<span class="nc bnc" id="L207" title="All 2 branches missed.">            if (otherChooser.getUniqueKey() == null) {</span>
+<span class="nc" id="L208">                return false;</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">            } else if (!this.uniqueKey.equals(otherChooser.getUniqueKey())) {</span>
+<span class="nc" id="L210">                return false;</span>
+            }
+
+        }
+
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        if (this.ref == null) {</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">            if (otherChooser.getRef() != null) {</span>
+<span class="nc" id="L217">                return false;</span>
+            }
+        } else {
+<span class="nc bnc" id="L220" title="All 2 branches missed.">            if (otherChooser.getRef() == null) {</span>
+<span class="nc" id="L221">                return false;</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">            } else if (!this.ref.equals(otherChooser.getRef())) {</span>
+<span class="nc" id="L223">                return false;</span>
+            }
+
+        }
+
+<span class="nc" id="L228">        return true;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

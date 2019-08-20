@@ -1,0 +1,3 @@
+com\alibaba\nacos\address\AddressServerControllerTests.class
+com\alibaba\nacos\address\ParamCheckUtilTests.class
+com\alibaba\nacos\address\SimpleHttpTestUtils.class

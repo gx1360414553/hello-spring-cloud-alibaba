@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JwtAuthenticationTokenFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-console 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.console.filter</a> &gt; <span class="el_source">JwtAuthenticationTokenFilter.java</span></div><h1>JwtAuthenticationTokenFilter.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.console.filter;
+
+import com.alibaba.nacos.console.config.WebSecurityConfig;
+import com.alibaba.nacos.console.utils.JwtTokenUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+/**
+ * jwt auth token filter
+ *
+ * @author wfnuser
+ */
+public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
+
+    private static final String TOKEN_PREFIX = &quot;Bearer &quot;;
+
+    private JwtTokenUtils tokenProvider;
+
+<span class="nc" id="L42">    public JwtAuthenticationTokenFilter(JwtTokenUtils tokenProvider) {</span>
+<span class="nc" id="L43">        this.tokenProvider = tokenProvider;</span>
+<span class="nc" id="L44">    }</span>
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException {
+<span class="nc" id="L48">        String jwt = resolveToken(request);</span>
+
+<span class="nc bnc" id="L50" title="All 6 branches missed.">        if (jwt != null &amp;&amp; !&quot;&quot;.equals(jwt.trim()) &amp;&amp; SecurityContextHolder.getContext().getAuthentication() == null) {</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">            if (this.tokenProvider.validateToken(jwt)) {</span>
+                /**
+                 * get auth info
+                 */
+<span class="nc" id="L55">                Authentication authentication = this.tokenProvider.getAuthentication(jwt);</span>
+                /**
+                 * save user info to securityContext
+                 */
+<span class="nc" id="L59">                SecurityContextHolder.getContext().setAuthentication(authentication);</span>
+            }
+        }
+
+<span class="nc" id="L63">        chain.doFilter(request, response);</span>
+<span class="nc" id="L64">    }</span>
+
+    /**
+     * Get token from header
+     */
+    private String resolveToken(HttpServletRequest request) {
+<span class="nc" id="L70">        String bearerToken = request.getHeader(WebSecurityConfig.AUTHORIZATION_HEADER);</span>
+<span class="nc bnc" id="L71" title="All 4 branches missed.">        if (StringUtils.hasText(bearerToken) &amp;&amp; bearerToken.startsWith(TOKEN_PREFIX)) {</span>
+<span class="nc" id="L72">            return bearerToken.substring(7, bearerToken.length());</span>
+        }
+<span class="nc" id="L74">        String jwt = request.getParameter(WebSecurityConfig.AUTHORIZATION_TOKEN);</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        if (StringUtils.hasText(jwt)) {</span>
+<span class="nc" id="L76">            return jwt;</span>
+        }
+<span class="nc" id="L78">        return null;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

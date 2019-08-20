@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NacosNamingMaintainService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming</a> &gt; <span class="el_source">NacosNamingMaintainService.java</span></div><h1>NacosNamingMaintainService.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.alibaba.nacos.client.naming;
+
+import com.alibaba.nacos.api.PropertyKeyConst;
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.NamingMaintainService;
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.Service;
+import com.alibaba.nacos.api.selector.AbstractSelector;
+import com.alibaba.nacos.api.selector.ExpressionSelector;
+import com.alibaba.nacos.api.selector.NoneSelector;
+import com.alibaba.nacos.client.naming.net.NamingProxy;
+import com.alibaba.nacos.client.naming.utils.InitUtils;
+import com.alibaba.nacos.client.utils.StringUtils;
+
+import java.util.Map;
+import java.util.Properties;
+
+/**
+ * @author liaochuntao
+ * @since 1.0.1
+ */
+@SuppressWarnings(&quot;PMD.ServiceOrDaoClassShouldEndWithImplRule&quot;)
+public class NacosNamingMaintainService implements NamingMaintainService {
+
+    private String namespace;
+
+    private String endpoint;
+
+    private String serverList;
+
+    private NamingProxy serverProxy;
+
+<span class="nc" id="L50">    public NacosNamingMaintainService(String serverList) {</span>
+<span class="nc" id="L51">        Properties properties = new Properties();</span>
+<span class="nc" id="L52">        properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);</span>
+
+<span class="nc" id="L54">        init(properties);</span>
+<span class="nc" id="L55">    }</span>
+
+<span class="nc" id="L57">    public NacosNamingMaintainService(Properties properties) {</span>
+
+<span class="nc" id="L59">        init(properties);</span>
+<span class="nc" id="L60">    }</span>
+
+    private void init(Properties properties) {
+<span class="nc" id="L63">        namespace = InitUtils.initNamespaceForNaming(properties);</span>
+<span class="nc" id="L64">        initServerAddr(properties);</span>
+<span class="nc" id="L65">        InitUtils.initWebRootContext();</span>
+
+<span class="nc" id="L67">        serverProxy = new NamingProxy(namespace, endpoint, serverList);</span>
+<span class="nc" id="L68">        serverProxy.setProperties(properties);</span>
+<span class="nc" id="L69">    }</span>
+
+    private void initServerAddr(Properties properties) {
+<span class="nc" id="L72">        serverList = properties.getProperty(PropertyKeyConst.SERVER_ADDR);</span>
+<span class="nc" id="L73">        endpoint = InitUtils.initEndpoint(properties);</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(endpoint)) {</span>
+<span class="nc" id="L75">            serverList = &quot;&quot;;</span>
+        }
+<span class="nc" id="L77">    }</span>
+
+    @Override
+    public void updateInstance(String serviceName, Instance instance) throws NacosException {
+<span class="nc" id="L81">        updateInstance(serviceName, Constants.DEFAULT_GROUP, instance);</span>
+<span class="nc" id="L82">    }</span>
+
+    @Override
+    public void updateInstance(String serviceName, String groupName, Instance instance) throws NacosException {
+<span class="nc" id="L86">        serverProxy.updateInstance(serviceName, groupName, instance);</span>
+<span class="nc" id="L87">    }</span>
+
+    @Override
+    public Service queryService(String serviceName) throws NacosException {
+<span class="nc" id="L91">        return queryService(serviceName, Constants.DEFAULT_GROUP);</span>
+    }
+
+    @Override
+    public Service queryService(String serviceName, String groupName) throws NacosException {
+<span class="nc" id="L96">        return serverProxy.queryService(serviceName, groupName);</span>
+    }
+
+    @Override
+    public void createService(String serviceName) throws NacosException {
+<span class="nc" id="L101">        createService(serviceName, Constants.DEFAULT_GROUP);</span>
+<span class="nc" id="L102">    }</span>
+
+    @Override
+    public void createService(String serviceName, String groupName) throws NacosException {
+<span class="nc" id="L106">        createService(serviceName, groupName, Constants.DEFAULT_PROTECT_THRESHOLD);</span>
+<span class="nc" id="L107">    }</span>
+
+    @Override
+    public void createService(String serviceName, String groupName, float protectThreshold) throws NacosException {
+<span class="nc" id="L111">        NoneSelector selector = new NoneSelector();</span>
+<span class="nc" id="L112">        Service service = new Service();</span>
+<span class="nc" id="L113">        service.setName(serviceName);</span>
+<span class="nc" id="L114">        service.setGroupName(groupName);</span>
+<span class="nc" id="L115">        service.setProtectThreshold(protectThreshold);</span>
+
+<span class="nc" id="L117">        createService(service, selector);</span>
+<span class="nc" id="L118">    }</span>
+
+    @Override
+    public void createService(String serviceName, String groupName, float protectThreshold, String expression) throws NacosException {
+<span class="nc" id="L122">        Service service = new Service();</span>
+<span class="nc" id="L123">        service.setName(serviceName);</span>
+<span class="nc" id="L124">        service.setGroupName(groupName);</span>
+<span class="nc" id="L125">        service.setProtectThreshold(protectThreshold);</span>
+
+<span class="nc" id="L127">        ExpressionSelector selector = new ExpressionSelector();</span>
+<span class="nc" id="L128">        selector.setExpression(expression);</span>
+
+<span class="nc" id="L130">        createService(service, selector);</span>
+<span class="nc" id="L131">    }</span>
+
+    @Override
+    public void createService(Service service, AbstractSelector selector) throws NacosException {
+<span class="nc" id="L135">        serverProxy.createService(service, selector);</span>
+<span class="nc" id="L136">    }</span>
+
+    @Override
+    public boolean deleteService(String serviceName) throws NacosException {
+<span class="nc" id="L140">        return deleteService(serviceName, Constants.DEFAULT_GROUP);</span>
+    }
+
+    @Override
+    public boolean deleteService(String serviceName, String groupName) throws NacosException {
+<span class="nc" id="L145">        return serverProxy.deleteService(serviceName, groupName);</span>
+    }
+
+    @Override
+    public void updateService(String serviceName, String groupName, float protectThreshold) throws NacosException {
+<span class="nc" id="L150">        Service service = new Service();</span>
+<span class="nc" id="L151">        service.setName(serviceName);</span>
+<span class="nc" id="L152">        service.setGroupName(groupName);</span>
+<span class="nc" id="L153">        service.setProtectThreshold(protectThreshold);</span>
+
+<span class="nc" id="L155">        updateService(service, new NoneSelector());</span>
+<span class="nc" id="L156">    }</span>
+
+    @Override
+    public void updateService(String serviceName, String groupName, float protectThreshold, Map&lt;String, String&gt; metadata) throws NacosException {
+<span class="nc" id="L160">        Service service = new Service();</span>
+<span class="nc" id="L161">        service.setName(serviceName);</span>
+<span class="nc" id="L162">        service.setGroupName(groupName);</span>
+<span class="nc" id="L163">        service.setProtectThreshold(protectThreshold);</span>
+<span class="nc" id="L164">        service.setMetadata(metadata);</span>
+
+<span class="nc" id="L166">        updateService(service, new NoneSelector());</span>
+<span class="nc" id="L167">    }</span>
+
+    @Override
+    public void updateService(Service service, AbstractSelector selector) throws NacosException {
+<span class="nc" id="L171">        serverProxy.updateService(service, selector);</span>
+<span class="nc" id="L172">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

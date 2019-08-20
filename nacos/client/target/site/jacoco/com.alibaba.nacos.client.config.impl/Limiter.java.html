@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Limiter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.config.impl</a> &gt; <span class="el_source">Limiter.java</span></div><h1>Limiter.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.config.impl;
+
+import com.alibaba.nacos.client.utils.LogUtils;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.RateLimiter;
+import org.slf4j.Logger;
+
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Limiter
+ *
+ * @author Nacos
+ */
+<span class="nc" id="L33">public class Limiter {</span>
+
+<span class="nc" id="L35">    private static final Logger LOGGER = LogUtils.logger(Limiter.class);</span>
+
+    private static final int CAPACITY_SIZE = 1000;
+    private static final int LIMIT_TIME = 1000;
+<span class="nc" id="L39">    private static Cache&lt;String, RateLimiter&gt; cache = CacheBuilder.newBuilder()</span>
+<span class="nc" id="L40">        .initialCapacity(CAPACITY_SIZE).expireAfterAccess(1, TimeUnit.MINUTES)</span>
+<span class="nc" id="L41">        .build();</span>
+
+    /**
+     * qps 5
+     */
+<span class="nc" id="L46">    private static double limit = 5;</span>
+
+    static {
+        try {
+<span class="nc" id="L50">            String limitTimeStr = System</span>
+<span class="nc" id="L51">                .getProperty(&quot;limitTime&quot;, String.valueOf(limit));</span>
+<span class="nc" id="L52">            limit = Double.parseDouble(limitTimeStr);</span>
+<span class="nc" id="L53">            LOGGER.info(&quot;limitTime:{}&quot;, limit);</span>
+<span class="nc" id="L54">        } catch (Exception e) {</span>
+<span class="nc" id="L55">            LOGGER.error(&quot;init limitTime fail&quot;, e);</span>
+<span class="nc" id="L56">        }</span>
+<span class="nc" id="L57">    }</span>
+
+    public static boolean isLimit(String accessKeyID) {
+<span class="nc" id="L60">        RateLimiter rateLimiter = null;</span>
+        try {
+<span class="nc" id="L62">            rateLimiter = cache.get(accessKeyID, new Callable&lt;RateLimiter&gt;() {</span>
+                @Override
+                public RateLimiter call() throws Exception {
+<span class="nc" id="L65">                    return RateLimiter.create(limit);</span>
+                }
+            });
+<span class="nc" id="L68">        } catch (ExecutionException e) {</span>
+<span class="nc" id="L69">            LOGGER.error(&quot;create limit fail&quot;, e);</span>
+<span class="nc" id="L70">        }</span>
+<span class="nc bnc" id="L71" title="All 4 branches missed.">        if (rateLimiter != null &amp;&amp; !rateLimiter.tryAcquire(LIMIT_TIME, TimeUnit.MILLISECONDS)) {</span>
+<span class="nc" id="L72">            LOGGER.error(&quot;access_key_id:{} limited&quot;, accessKeyID);</span>
+<span class="nc" id="L73">            return true;</span>
+        }
+<span class="nc" id="L75">        return false;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

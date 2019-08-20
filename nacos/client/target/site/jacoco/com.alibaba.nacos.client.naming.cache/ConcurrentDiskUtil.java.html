@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConcurrentDiskUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.cache</a> &gt; <span class="el_source">ConcurrentDiskUtil.java</span></div><h1>ConcurrentDiskUtil.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.cache;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+
+import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
+
+/**
+ * @author nkorange
+ */
+<span class="nc" id="L34">public class ConcurrentDiskUtil {</span>
+
+    /**
+     * get file content
+     *
+     * @param path        file path
+     * @param charsetName charsetName
+     * @return content
+     * @throws IOException IOException
+     */
+    public static String getFileContent(String path, String charsetName)
+        throws IOException {
+<span class="nc" id="L46">        File file = new File(path);</span>
+<span class="nc" id="L47">        return getFileContent(file, charsetName);</span>
+    }
+
+    /**
+     * get file content
+     *
+     * @param file        file
+     * @param charsetName charsetName
+     * @return content
+     * @throws IOException IOException
+     */
+    public static String getFileContent(File file, String charsetName)
+        throws IOException {
+<span class="nc" id="L60">        RandomAccessFile fis = null;</span>
+<span class="nc" id="L61">        FileLock rlock = null;</span>
+        try {
+<span class="nc" id="L63">            fis = new RandomAccessFile(file, &quot;r&quot;);</span>
+<span class="nc" id="L64">            FileChannel fcin = fis.getChannel();</span>
+<span class="nc" id="L65">            int i = 0;</span>
+            do {
+                try {
+<span class="nc" id="L68">                    rlock = fcin.tryLock(0L, Long.MAX_VALUE, true);</span>
+<span class="nc" id="L69">                } catch (Exception e) {</span>
+<span class="nc" id="L70">                    ++i;</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">                    if (i &gt; RETRY_COUNT) {</span>
+<span class="nc" id="L72">                        NAMING_LOGGER.error(&quot;[NA] read &quot; + file.getName() + &quot; fail;retryed time: &quot; + i, e);</span>
+<span class="nc" id="L73">                        throw new IOException(&quot;read &quot; + file.getAbsolutePath()</span>
+                            + &quot; conflict&quot;);
+                    }
+<span class="nc" id="L76">                    sleep(SLEEP_BASETIME * i);</span>
+<span class="nc" id="L77">                    NAMING_LOGGER.warn(&quot;read &quot; + file.getName() + &quot; conflict;retry time: &quot; + i);</span>
+<span class="nc" id="L78">                }</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">            } while (null == rlock);</span>
+<span class="nc" id="L80">            int fileSize = (int)fcin.size();</span>
+<span class="nc" id="L81">            ByteBuffer byteBuffer = ByteBuffer.allocate(fileSize);</span>
+<span class="nc" id="L82">            fcin.read(byteBuffer);</span>
+<span class="nc" id="L83">            byteBuffer.flip();</span>
+<span class="nc" id="L84">            return byteBufferToString(byteBuffer, charsetName);</span>
+        } finally {
+<span class="nc bnc" id="L86" title="All 4 branches missed.">            if (rlock != null) {</span>
+<span class="nc" id="L87">                rlock.release();</span>
+<span class="nc" id="L88">                rlock = null;</span>
+            }
+<span class="nc bnc" id="L90" title="All 4 branches missed.">            if (fis != null) {</span>
+<span class="nc" id="L91">                fis.close();</span>
+<span class="nc" id="L92">                fis = null;</span>
+            }
+<span class="nc" id="L94">        }</span>
+    }
+
+    /**
+     * write file content
+     *
+     * @param path        file path
+     * @param content     content
+     * @param charsetName charsetName
+     * @return whether write ok
+     * @throws IOException IOException
+     */
+    public static Boolean writeFileContent(String path, String content,
+                                           String charsetName) throws IOException {
+<span class="nc" id="L108">        File file = new File(path);</span>
+<span class="nc" id="L109">        return writeFileContent(file, content, charsetName);</span>
+    }
+
+    /**
+     * write file content
+     *
+     * @param file        file
+     * @param content     content
+     * @param charsetName charsetName
+     * @return whether write ok
+     * @throws IOException IOException
+     */
+    public static Boolean writeFileContent(File file, String content,
+                                           String charsetName) throws IOException {
+
+<span class="nc bnc" id="L124" title="All 4 branches missed.">        if (!file.exists() &amp;&amp; !file.createNewFile()) {</span>
+<span class="nc" id="L125">            return false;</span>
+        }
+<span class="nc" id="L127">        FileChannel channel = null;</span>
+<span class="nc" id="L128">        FileLock lock = null;</span>
+<span class="nc" id="L129">        RandomAccessFile raf = null;</span>
+        try {
+<span class="nc" id="L131">            raf = new RandomAccessFile(file, &quot;rw&quot;);</span>
+<span class="nc" id="L132">            channel = raf.getChannel();</span>
+<span class="nc" id="L133">            int i = 0;</span>
+            do {
+                try {
+<span class="nc" id="L136">                    lock = channel.tryLock();</span>
+<span class="nc" id="L137">                } catch (Exception e) {</span>
+<span class="nc" id="L138">                    ++i;</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                    if (i &gt; RETRY_COUNT) {</span>
+<span class="nc" id="L140">                        NAMING_LOGGER.error(&quot;[NA] write {} fail;retryed time:{}&quot;, file.getName(), i);</span>
+<span class="nc" id="L141">                        throw new IOException(&quot;write &quot; + file.getAbsolutePath()</span>
+                            + &quot; conflict&quot;, e);
+                    }
+<span class="nc" id="L144">                    sleep(SLEEP_BASETIME * i);</span>
+<span class="nc" id="L145">                    NAMING_LOGGER.warn(&quot;write &quot; + file.getName() + &quot; conflict;retry time: &quot; + i);</span>
+<span class="nc" id="L146">                }</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">            } while (null == lock);</span>
+
+<span class="nc" id="L149">            ByteBuffer sendBuffer = ByteBuffer.wrap(content</span>
+<span class="nc" id="L150">                .getBytes(charsetName));</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            while (sendBuffer.hasRemaining()) {</span>
+<span class="nc" id="L152">                channel.write(sendBuffer);</span>
+            }
+<span class="nc" id="L154">            channel.truncate(content.length());</span>
+<span class="nc" id="L155">        } catch (FileNotFoundException e) {</span>
+<span class="nc" id="L156">            throw new IOException(&quot;file not exist&quot;);</span>
+        } finally {
+<span class="nc bnc" id="L158" title="All 4 branches missed.">            if (lock != null) {</span>
+                try {
+<span class="nc" id="L160">                    lock.release();</span>
+<span class="nc" id="L161">                    lock = null;</span>
+<span class="nc" id="L162">                } catch (IOException e) {</span>
+<span class="nc" id="L163">                    NAMING_LOGGER.warn(&quot;close wrong&quot;, e);</span>
+<span class="nc" id="L164">                }</span>
+            }
+<span class="nc bnc" id="L166" title="All 4 branches missed.">            if (channel != null) {</span>
+                try {
+<span class="nc" id="L168">                    channel.close();</span>
+<span class="nc" id="L169">                    channel = null;</span>
+<span class="nc" id="L170">                } catch (IOException e) {</span>
+<span class="nc" id="L171">                    NAMING_LOGGER.warn(&quot;close wrong&quot;, e);</span>
+<span class="nc" id="L172">                }</span>
+            }
+<span class="nc bnc" id="L174" title="All 4 branches missed.">            if (raf != null) {</span>
+                try {
+<span class="nc" id="L176">                    raf.close();</span>
+<span class="nc" id="L177">                    raf = null;</span>
+<span class="nc" id="L178">                } catch (IOException e) {</span>
+<span class="nc" id="L179">                    NAMING_LOGGER.warn(&quot;close wrong&quot;, e);</span>
+<span class="nc" id="L180">                }</span>
+            }
+
+<span class="nc" id="L183">        }</span>
+<span class="nc" id="L184">        return true;</span>
+    }
+
+    /**
+     * transfer ByteBuffer to String
+     *
+     * @param buffer      buffer
+     * @param charsetName charsetName
+     * @return String
+     * @throws IOException IOException
+     */
+    public static String byteBufferToString(ByteBuffer buffer,
+                                            String charsetName) throws IOException {
+<span class="nc" id="L197">        Charset charset = null;</span>
+<span class="nc" id="L198">        CharsetDecoder decoder = null;</span>
+<span class="nc" id="L199">        CharBuffer charBuffer = null;</span>
+<span class="nc" id="L200">        charset = Charset.forName(charsetName);</span>
+<span class="nc" id="L201">        decoder = charset.newDecoder();</span>
+<span class="nc" id="L202">        charBuffer = decoder.decode(buffer.asReadOnlyBuffer());</span>
+<span class="nc" id="L203">        return charBuffer.toString();</span>
+    }
+
+    private static void sleep(int time) {
+        try {
+<span class="nc" id="L208">            Thread.sleep(time);</span>
+<span class="nc" id="L209">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L210">            NAMING_LOGGER.warn(&quot;sleep wrong&quot;, e);</span>
+<span class="nc" id="L211">        }</span>
+<span class="nc" id="L212">    }</span>
+
+    private static final int RETRY_COUNT = 10;
+    private static final int SLEEP_BASETIME = 10;
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

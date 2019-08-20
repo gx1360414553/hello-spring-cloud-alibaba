@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IOUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.config.utils</a> &gt; <span class="el_source">IOUtils.java</span></div><h1>IOUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.config.utils;
+
+import com.alibaba.nacos.api.common.Constants;
+
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * IO Util
+ *
+ * @author Nacos
+ */
+@SuppressWarnings(&quot;PMD.ClassNamingShouldBeCamelRule&quot;)
+<span class="nc" id="L30">public class IOUtils {</span>
+
+    static public String toString(InputStream input, String encoding) throws IOException {
+<span class="nc bnc" id="L33" title="All 2 branches missed.">        return (null == encoding) ? toString(new InputStreamReader(input, Constants.ENCODE))</span>
+<span class="nc" id="L34">            : toString(new InputStreamReader(input, encoding));</span>
+    }
+
+    static public String toString(Reader reader) throws IOException {
+<span class="nc" id="L38">        CharArrayWriter sw = new CharArrayWriter();</span>
+<span class="nc" id="L39">        copy(reader, sw);</span>
+<span class="nc" id="L40">        return sw.toString();</span>
+    }
+
+    static public long copy(Reader input, Writer output) throws IOException {
+<span class="nc" id="L44">        char[] buffer = new char[1 &lt;&lt; 12];</span>
+<span class="nc" id="L45">        long count = 0;</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        for (int n = 0; (n = input.read(buffer)) &gt;= 0; ) {</span>
+<span class="nc" id="L47">            output.write(buffer, 0, n);</span>
+<span class="nc" id="L48">            count += n;</span>
+        }
+<span class="nc" id="L50">        return count;</span>
+    }
+
+    /**
+     * 从输入流读行列表。保证不返回NULL。
+     */
+    static public List&lt;String&gt; readLines(Reader input) throws IOException {
+<span class="nc" id="L57">        BufferedReader reader = toBufferedReader(input);</span>
+<span class="nc" id="L58">        List&lt;String&gt; list = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L59">        String line = null;</span>
+        for (; ; ) {
+<span class="nc" id="L61">            line = reader.readLine();</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">            if (null != line) {</span>
+<span class="nc" id="L63">                list.add(line);</span>
+            } else {
+                break;
+            }
+        }
+<span class="nc" id="L68">        return list;</span>
+    }
+
+    static private BufferedReader toBufferedReader(Reader reader) {
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        return reader instanceof BufferedReader ? (BufferedReader)reader : new BufferedReader(</span>
+            reader);
+    }
+
+    public static void delete(File fileOrDir) throws IOException {
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (fileOrDir == null) {</span>
+<span class="nc" id="L78">            return;</span>
+        }
+
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (fileOrDir.isDirectory()) {</span>
+<span class="nc" id="L82">            cleanDirectory(fileOrDir);</span>
+        } else {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">            if (fileOrDir.exists()) {</span>
+<span class="nc" id="L85">                boolean isDeleteOk = fileOrDir.delete();</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">                if (!isDeleteOk) {</span>
+<span class="nc" id="L87">                    throw new IOException(&quot;delete fail&quot;);</span>
+                }
+            }
+        }
+<span class="nc" id="L91">    }</span>
+
+    /**
+     * 清理目录下的内容
+     */
+    public static void cleanDirectory(File directory) throws IOException {
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (!directory.exists()) {</span>
+<span class="nc" id="L98">            String message = directory + &quot; does not exist&quot;;</span>
+<span class="nc" id="L99">            throw new IllegalArgumentException(message);</span>
+        }
+
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (!directory.isDirectory()) {</span>
+<span class="nc" id="L103">            String message = directory + &quot; is not a directory&quot;;</span>
+<span class="nc" id="L104">            throw new IllegalArgumentException(message);</span>
+        }
+
+<span class="nc" id="L107">        File[] files = directory.listFiles();</span>
+        /**
+         * null if security restricted
+         */
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        if (files == null) {</span>
+<span class="nc" id="L112">            throw new IOException(&quot;Failed to list contents of &quot; + directory);</span>
+        }
+
+<span class="nc" id="L115">        IOException exception = null;</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        for (File file : files) {</span>
+            try {
+<span class="nc" id="L118">                delete(file);</span>
+<span class="nc" id="L119">            } catch (IOException ioe) {</span>
+<span class="nc" id="L120">                exception = ioe;</span>
+<span class="nc" id="L121">            }</span>
+        }
+
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (null != exception) {</span>
+<span class="nc" id="L125">            throw exception;</span>
+        }
+<span class="nc" id="L127">    }</span>
+
+    public static void writeStringToFile(File file, String data, String encoding)
+        throws IOException {
+<span class="nc" id="L131">        OutputStream os = null;</span>
+        try {
+<span class="nc" id="L133">            os = new FileOutputStream(file);</span>
+<span class="nc" id="L134">            os.write(data.getBytes(encoding));</span>
+        } finally {
+<span class="nc bnc" id="L136" title="All 4 branches missed.">            if (null != os) {</span>
+<span class="nc" id="L137">                os.close();</span>
+            }
+<span class="nc" id="L139">        }</span>
+<span class="nc" id="L140">    }</span>
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

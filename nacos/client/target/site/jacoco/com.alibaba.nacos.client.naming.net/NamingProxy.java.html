@@ -1,0 +1,565 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NamingProxy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.net</a> &gt; <span class="el_source">NamingProxy.java</span></div><h1>NamingProxy.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.net;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.TypeReference;
+import com.alibaba.nacos.api.PropertyKeyConst;
+import com.alibaba.nacos.api.SystemPropertyKeyConst;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.CommonParams;
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.ListView;
+import com.alibaba.nacos.api.naming.pojo.Service;
+import com.alibaba.nacos.api.selector.AbstractSelector;
+import com.alibaba.nacos.api.selector.ExpressionSelector;
+import com.alibaba.nacos.api.selector.SelectorType;
+import com.alibaba.nacos.client.config.impl.SpasAdapter;
+import com.alibaba.nacos.client.monitor.MetricsMonitor;
+import com.alibaba.nacos.client.naming.beat.BeatInfo;
+import com.alibaba.nacos.client.naming.utils.*;
+import com.alibaba.nacos.client.utils.AppNameUtils;
+import com.alibaba.nacos.client.utils.StringUtils;
+import com.alibaba.nacos.client.utils.TemplateUtils;
+import com.alibaba.nacos.common.util.HttpMethod;
+import com.alibaba.nacos.common.util.UuidUtils;
+
+import java.io.IOException;
+import java.io.StringReader;
+import java.net.HttpURLConnection;
+import java.util.*;
+import java.util.concurrent.*;
+
+import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
+
+/**
+ * @author nkorange
+ */
+public class NamingProxy {
+
+    private static final int DEFAULT_SERVER_PORT = 8848;
+
+<span class="nc" id="L56">    private int serverPort = DEFAULT_SERVER_PORT;</span>
+
+    private String namespaceId;
+
+    private String endpoint;
+
+    private String nacosDomain;
+
+    private List&lt;String&gt; serverList;
+
+<span class="nc" id="L66">    private List&lt;String&gt; serversFromEndpoint = new ArrayList&lt;String&gt;();</span>
+
+<span class="nc" id="L68">    private long lastSrvRefTime = 0L;</span>
+
+<span class="nc" id="L70">    private long vipSrvRefInterMillis = TimeUnit.SECONDS.toMillis(30);</span>
+
+    private Properties properties;
+
+<span class="nc" id="L74">    public NamingProxy(String namespaceId, String endpoint, String serverList) {</span>
+
+<span class="nc" id="L76">        this.namespaceId = namespaceId;</span>
+<span class="nc" id="L77">        this.endpoint = endpoint;</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(serverList)) {</span>
+<span class="nc" id="L79">            this.serverList = Arrays.asList(serverList.split(&quot;,&quot;));</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">            if (this.serverList.size() == 1) {</span>
+<span class="nc" id="L81">                this.nacosDomain = serverList;</span>
+            }
+        }
+
+<span class="nc" id="L85">        initRefreshSrvIfNeed();</span>
+<span class="nc" id="L86">    }</span>
+
+    private void initRefreshSrvIfNeed() {
+<span class="nc bnc" id="L89" title="All 2 branches missed.">        if (StringUtils.isEmpty(endpoint)) {</span>
+<span class="nc" id="L90">            return;</span>
+        }
+
+<span class="nc" id="L93">        ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(1, new ThreadFactory() {</span>
+            @Override
+            public Thread newThread(Runnable r) {
+<span class="nc" id="L96">                Thread t = new Thread(r);</span>
+<span class="nc" id="L97">                t.setName(&quot;com.alibaba.nacos.client.naming.serverlist.updater&quot;);</span>
+<span class="nc" id="L98">                t.setDaemon(true);</span>
+<span class="nc" id="L99">                return t;</span>
+            }
+        });
+
+<span class="nc" id="L103">        executorService.scheduleWithFixedDelay(new Runnable() {</span>
+            @Override
+            public void run() {
+<span class="nc" id="L106">                refreshSrvIfNeed();</span>
+<span class="nc" id="L107">            }</span>
+        }, 0, vipSrvRefInterMillis, TimeUnit.MILLISECONDS);
+
+<span class="nc" id="L110">        refreshSrvIfNeed();</span>
+<span class="nc" id="L111">    }</span>
+
+    public List&lt;String&gt; getServerListFromEndpoint() {
+
+        try {
+<span class="nc" id="L116">            String urlString = &quot;http://&quot; + endpoint + &quot;/nacos/serverlist&quot;;</span>
+<span class="nc" id="L117">            List&lt;String&gt; headers = builderHeaders();</span>
+
+<span class="nc" id="L119">            HttpClient.HttpResult result = HttpClient.httpGet(urlString, headers, null, UtilAndComs.ENCODING);</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            if (HttpURLConnection.HTTP_OK != result.code) {</span>
+<span class="nc" id="L121">                throw new IOException(&quot;Error while requesting: &quot; + urlString + &quot;'. Server returned: &quot;</span>
+                    + result.code);
+            }
+
+<span class="nc" id="L125">            String content = result.content;</span>
+<span class="nc" id="L126">            List&lt;String&gt; list = new ArrayList&lt;String&gt;();</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">            for (String line : IoUtils.readLines(new StringReader(content))) {</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">                if (!line.trim().isEmpty()) {</span>
+<span class="nc" id="L129">                    list.add(line.trim());</span>
+                }
+<span class="nc" id="L131">            }</span>
+
+<span class="nc" id="L133">            return list;</span>
+
+<span class="nc" id="L135">        } catch (Exception e) {</span>
+<span class="nc" id="L136">            e.printStackTrace();</span>
+        }
+
+<span class="nc" id="L139">        return null;</span>
+    }
+
+    private void refreshSrvIfNeed() {
+        try {
+
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            if (!CollectionUtils.isEmpty(serverList)) {</span>
+<span class="nc" id="L146">                NAMING_LOGGER.debug(&quot;server list provided by user: &quot; + serverList);</span>
+<span class="nc" id="L147">                return;</span>
+            }
+
+<span class="nc bnc" id="L150" title="All 2 branches missed.">            if (System.currentTimeMillis() - lastSrvRefTime &lt; vipSrvRefInterMillis) {</span>
+<span class="nc" id="L151">                return;</span>
+            }
+
+<span class="nc" id="L154">            List&lt;String&gt; list = getServerListFromEndpoint();</span>
+
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (CollectionUtils.isEmpty(list)) {</span>
+<span class="nc" id="L157">                throw new Exception(&quot;Can not acquire Nacos list&quot;);</span>
+            }
+
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            if (!CollectionUtils.isEqualCollection(list, serversFromEndpoint)) {</span>
+<span class="nc" id="L161">                NAMING_LOGGER.info(&quot;[SERVER-LIST] server list is updated: &quot; + list);</span>
+            }
+
+<span class="nc" id="L164">            serversFromEndpoint = list;</span>
+<span class="nc" id="L165">            lastSrvRefTime = System.currentTimeMillis();</span>
+<span class="nc" id="L166">        } catch (Throwable e) {</span>
+<span class="nc" id="L167">            NAMING_LOGGER.warn(&quot;failed to update server list&quot;, e);</span>
+<span class="nc" id="L168">        }</span>
+<span class="nc" id="L169">    }</span>
+
+    public void registerService(String serviceName, String groupName, Instance instance) throws NacosException {
+
+<span class="nc" id="L173">        NAMING_LOGGER.info(&quot;[REGISTER-SERVICE] {} registering service {} with instance: {}&quot;,</span>
+            namespaceId, serviceName, instance);
+
+<span class="nc" id="L176">        final Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(9);</span>
+<span class="nc" id="L177">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L178">        params.put(CommonParams.SERVICE_NAME, serviceName);</span>
+<span class="nc" id="L179">        params.put(CommonParams.GROUP_NAME, groupName);</span>
+<span class="nc" id="L180">        params.put(CommonParams.CLUSTER_NAME, instance.getClusterName());</span>
+<span class="nc" id="L181">        params.put(&quot;ip&quot;, instance.getIp());</span>
+<span class="nc" id="L182">        params.put(&quot;port&quot;, String.valueOf(instance.getPort()));</span>
+<span class="nc" id="L183">        params.put(&quot;weight&quot;, String.valueOf(instance.getWeight()));</span>
+<span class="nc" id="L184">        params.put(&quot;enable&quot;, String.valueOf(instance.isEnabled()));</span>
+<span class="nc" id="L185">        params.put(&quot;healthy&quot;, String.valueOf(instance.isHealthy()));</span>
+<span class="nc" id="L186">        params.put(&quot;ephemeral&quot;, String.valueOf(instance.isEphemeral()));</span>
+<span class="nc" id="L187">        params.put(&quot;metadata&quot;, JSON.toJSONString(instance.getMetadata()));</span>
+
+<span class="nc" id="L189">        reqAPI(UtilAndComs.NACOS_URL_INSTANCE, params, HttpMethod.POST);</span>
+
+<span class="nc" id="L191">    }</span>
+
+    public void deregisterService(String serviceName, Instance instance) throws NacosException {
+
+<span class="nc" id="L195">        NAMING_LOGGER.info(&quot;[DEREGISTER-SERVICE] {} deregistering service {} with instance: {}&quot;,</span>
+            namespaceId, serviceName, instance);
+
+<span class="nc" id="L198">        final Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(8);</span>
+<span class="nc" id="L199">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L200">        params.put(CommonParams.SERVICE_NAME, serviceName);</span>
+<span class="nc" id="L201">        params.put(CommonParams.CLUSTER_NAME, instance.getClusterName());</span>
+<span class="nc" id="L202">        params.put(&quot;ip&quot;, instance.getIp());</span>
+<span class="nc" id="L203">        params.put(&quot;port&quot;, String.valueOf(instance.getPort()));</span>
+<span class="nc" id="L204">        params.put(&quot;ephemeral&quot;, String.valueOf(instance.isEphemeral()));</span>
+
+<span class="nc" id="L206">        reqAPI(UtilAndComs.NACOS_URL_INSTANCE, params, HttpMethod.DELETE);</span>
+<span class="nc" id="L207">    }</span>
+
+    public void updateInstance(String serviceName, String groupName, Instance instance) throws NacosException {
+<span class="nc" id="L210">        NAMING_LOGGER.info(&quot;[UPDATE-SERVICE] {} update service {} with instance: {}&quot;,</span>
+            namespaceId, serviceName, instance);
+
+<span class="nc" id="L213">        final Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(8);</span>
+<span class="nc" id="L214">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L215">        params.put(CommonParams.SERVICE_NAME, serviceName);</span>
+<span class="nc" id="L216">        params.put(CommonParams.GROUP_NAME, groupName);</span>
+<span class="nc" id="L217">        params.put(CommonParams.CLUSTER_NAME, instance.getClusterName());</span>
+<span class="nc" id="L218">        params.put(&quot;ip&quot;, instance.getIp());</span>
+<span class="nc" id="L219">        params.put(&quot;port&quot;, String.valueOf(instance.getPort()));</span>
+<span class="nc" id="L220">        params.put(&quot;weight&quot;, String.valueOf(instance.getWeight()));</span>
+<span class="nc" id="L221">        params.put(&quot;enabled&quot;, String.valueOf(instance.isEnabled()));</span>
+<span class="nc" id="L222">        params.put(&quot;ephemeral&quot;, String.valueOf(instance.isEphemeral()));</span>
+<span class="nc" id="L223">        params.put(&quot;metadata&quot;, JSON.toJSONString(instance.getMetadata()));</span>
+
+<span class="nc" id="L225">        reqAPI(UtilAndComs.NACOS_URL_INSTANCE, params, HttpMethod.PUT);</span>
+<span class="nc" id="L226">    }</span>
+
+    public Service queryService(String serviceName, String groupName) throws NacosException {
+<span class="nc" id="L229">        NAMING_LOGGER.info(&quot;[QUERY-SERVICE] {} query service : {}, {}&quot;,</span>
+            namespaceId, serviceName, groupName);
+
+<span class="nc" id="L232">        final Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(3);</span>
+<span class="nc" id="L233">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L234">        params.put(CommonParams.SERVICE_NAME, serviceName);</span>
+<span class="nc" id="L235">        params.put(CommonParams.GROUP_NAME, groupName);</span>
+
+<span class="nc" id="L237">        String result = reqAPI(UtilAndComs.NACOS_URL_SERVICE, params, HttpMethod.GET);</span>
+<span class="nc" id="L238">        JSONObject jsonObject = JSON.parseObject(result);</span>
+<span class="nc" id="L239">        return jsonObject.toJavaObject(Service.class);</span>
+    }
+
+    public void createService(Service service, AbstractSelector selector) throws NacosException {
+
+<span class="nc" id="L244">        NAMING_LOGGER.info(&quot;[CREATE-SERVICE] {} creating service : {}&quot;,</span>
+            namespaceId, service);
+
+<span class="nc" id="L247">        final Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(6);</span>
+<span class="nc" id="L248">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L249">        params.put(CommonParams.SERVICE_NAME, service.getName());</span>
+<span class="nc" id="L250">        params.put(CommonParams.GROUP_NAME, service.getGroupName());</span>
+<span class="nc" id="L251">        params.put(&quot;protectThreshold&quot;, String.valueOf(service.getProtectThreshold()));</span>
+<span class="nc" id="L252">        params.put(&quot;metadata&quot;, JSON.toJSONString(service.getMetadata()));</span>
+<span class="nc" id="L253">        params.put(&quot;selector&quot;, JSON.toJSONString(selector));</span>
+
+<span class="nc" id="L255">        reqAPI(UtilAndComs.NACOS_URL_SERVICE, params, HttpMethod.POST);</span>
+
+<span class="nc" id="L257">    }</span>
+
+    public boolean deleteService(String serviceName, String groupName) throws NacosException {
+<span class="nc" id="L260">        NAMING_LOGGER.info(&quot;[DELETE-SERVICE] {} deleting service : {} with groupName : {}&quot;,</span>
+            namespaceId, serviceName, groupName);
+
+<span class="nc" id="L263">        final Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(6);</span>
+<span class="nc" id="L264">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L265">        params.put(CommonParams.SERVICE_NAME, serviceName);</span>
+<span class="nc" id="L266">        params.put(CommonParams.GROUP_NAME, groupName);</span>
+
+<span class="nc" id="L268">        String result = reqAPI(UtilAndComs.NACOS_URL_SERVICE, params, HttpMethod.DELETE);</span>
+<span class="nc" id="L269">        return &quot;ok&quot;.equals(result);</span>
+    }
+
+    public void updateService(Service service, AbstractSelector selector) throws NacosException {
+<span class="nc" id="L273">        NAMING_LOGGER.info(&quot;[UPDATE-SERVICE] {} updating service : {}&quot;,</span>
+            namespaceId, service);
+
+<span class="nc" id="L276">        final Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(6);</span>
+<span class="nc" id="L277">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L278">        params.put(CommonParams.SERVICE_NAME, service.getName());</span>
+<span class="nc" id="L279">        params.put(CommonParams.GROUP_NAME, service.getGroupName());</span>
+<span class="nc" id="L280">        params.put(&quot;protectThreshold&quot;, String.valueOf(service.getProtectThreshold()));</span>
+<span class="nc" id="L281">        params.put(&quot;metadata&quot;, JSON.toJSONString(service.getMetadata()));</span>
+<span class="nc" id="L282">        params.put(&quot;selector&quot;, JSON.toJSONString(selector));</span>
+
+<span class="nc" id="L284">        reqAPI(UtilAndComs.NACOS_URL_SERVICE, params, HttpMethod.PUT);</span>
+<span class="nc" id="L285">    }</span>
+
+    public String queryList(String serviceName, String clusters, int udpPort, boolean healthyOnly)
+        throws NacosException {
+
+<span class="nc" id="L290">        final Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(8);</span>
+<span class="nc" id="L291">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L292">        params.put(CommonParams.SERVICE_NAME, serviceName);</span>
+<span class="nc" id="L293">        params.put(&quot;clusters&quot;, clusters);</span>
+<span class="nc" id="L294">        params.put(&quot;udpPort&quot;, String.valueOf(udpPort));</span>
+<span class="nc" id="L295">        params.put(&quot;clientIP&quot;, NetUtils.localIP());</span>
+<span class="nc" id="L296">        params.put(&quot;healthyOnly&quot;, String.valueOf(healthyOnly));</span>
+
+<span class="nc" id="L298">        return reqAPI(UtilAndComs.NACOS_URL_BASE + &quot;/instance/list&quot;, params, HttpMethod.GET);</span>
+    }
+
+    public long sendBeat(BeatInfo beatInfo) {
+        try {
+<span class="nc bnc" id="L303" title="All 2 branches missed.">            if (NAMING_LOGGER.isDebugEnabled()) {</span>
+<span class="nc" id="L304">                NAMING_LOGGER.debug(&quot;[BEAT] {} sending beat to server: {}&quot;, namespaceId, beatInfo.toString());</span>
+            }
+<span class="nc" id="L306">            Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(4);</span>
+<span class="nc" id="L307">            params.put(&quot;beat&quot;, JSON.toJSONString(beatInfo));</span>
+<span class="nc" id="L308">            params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L309">            params.put(CommonParams.SERVICE_NAME, beatInfo.getServiceName());</span>
+<span class="nc" id="L310">            String result = reqAPI(UtilAndComs.NACOS_URL_BASE + &quot;/instance/beat&quot;, params, HttpMethod.PUT);</span>
+<span class="nc" id="L311">            JSONObject jsonObject = JSON.parseObject(result);</span>
+
+<span class="nc bnc" id="L313" title="All 2 branches missed.">            if (jsonObject != null) {</span>
+<span class="nc" id="L314">                return jsonObject.getLong(&quot;clientBeatInterval&quot;);</span>
+            }
+<span class="nc" id="L316">        } catch (Exception e) {</span>
+<span class="nc" id="L317">            NAMING_LOGGER.error(&quot;[CLIENT-BEAT] failed to send beat: &quot; + JSON.toJSONString(beatInfo), e);</span>
+<span class="nc" id="L318">        }</span>
+<span class="nc" id="L319">        return 0L;</span>
+    }
+
+    public boolean serverHealthy() {
+
+        try {
+<span class="nc" id="L325">            String result = reqAPI(UtilAndComs.NACOS_URL_BASE + &quot;/operator/metrics&quot;, new HashMap&lt;String, String&gt;(2));</span>
+<span class="nc" id="L326">            JSONObject json = JSON.parseObject(result);</span>
+<span class="nc" id="L327">            String serverStatus = json.getString(&quot;status&quot;);</span>
+<span class="nc" id="L328">            return &quot;UP&quot;.equals(serverStatus);</span>
+<span class="nc" id="L329">        } catch (Exception e) {</span>
+<span class="nc" id="L330">            return false;</span>
+        }
+    }
+
+    public ListView&lt;String&gt; getServiceList(int pageNo, int pageSize, String groupName) throws NacosException {
+<span class="nc" id="L335">        return getServiceList(pageNo, pageSize, groupName, null);</span>
+    }
+
+    public ListView&lt;String&gt; getServiceList(int pageNo, int pageSize, String groupName, AbstractSelector selector) throws NacosException {
+
+<span class="nc" id="L340">        Map&lt;String, String&gt; params = new HashMap&lt;String, String&gt;(4);</span>
+<span class="nc" id="L341">        params.put(&quot;pageNo&quot;, String.valueOf(pageNo));</span>
+<span class="nc" id="L342">        params.put(&quot;pageSize&quot;, String.valueOf(pageSize));</span>
+<span class="nc" id="L343">        params.put(CommonParams.NAMESPACE_ID, namespaceId);</span>
+<span class="nc" id="L344">        params.put(CommonParams.GROUP_NAME, groupName);</span>
+
+<span class="nc bnc" id="L346" title="All 2 branches missed.">        if (selector != null) {</span>
+<span class="nc bnc" id="L347" title="All 3 branches missed.">            switch (SelectorType.valueOf(selector.getType())) {</span>
+                case none:
+<span class="nc" id="L349">                    break;</span>
+                case label:
+<span class="nc" id="L351">                    ExpressionSelector expressionSelector = (ExpressionSelector) selector;</span>
+<span class="nc" id="L352">                    params.put(&quot;selector&quot;, JSON.toJSONString(expressionSelector));</span>
+<span class="nc" id="L353">                    break;</span>
+                default:
+                    break;
+            }
+        }
+
+<span class="nc" id="L359">        String result = reqAPI(UtilAndComs.NACOS_URL_BASE + &quot;/service/list&quot;, params);</span>
+
+<span class="nc" id="L361">        JSONObject json = JSON.parseObject(result);</span>
+<span class="nc" id="L362">        ListView&lt;String&gt; listView = new ListView&lt;String&gt;();</span>
+<span class="nc" id="L363">        listView.setCount(json.getInteger(&quot;count&quot;));</span>
+<span class="nc" id="L364">        listView.setData(JSON.parseObject(json.getString(&quot;doms&quot;), new TypeReference&lt;List&lt;String&gt;&gt;() {</span>
+        }));
+
+<span class="nc" id="L367">        return listView;</span>
+    }
+
+    public String reqAPI(String api, Map&lt;String, String&gt; params) throws NacosException {
+
+<span class="nc" id="L372">        List&lt;String&gt; snapshot = serversFromEndpoint;</span>
+<span class="nc bnc" id="L373" title="All 2 branches missed.">        if (!CollectionUtils.isEmpty(serverList)) {</span>
+<span class="nc" id="L374">            snapshot = serverList;</span>
+        }
+
+<span class="nc" id="L377">        return reqAPI(api, params, snapshot);</span>
+    }
+
+    public String reqAPI(String api, Map&lt;String, String&gt; params, String method) throws NacosException {
+
+<span class="nc" id="L382">        List&lt;String&gt; snapshot = serversFromEndpoint;</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">        if (!CollectionUtils.isEmpty(serverList)) {</span>
+<span class="nc" id="L384">            snapshot = serverList;</span>
+        }
+
+<span class="nc" id="L387">        return reqAPI(api, params, snapshot, method);</span>
+    }
+
+    public String callServer(String api, Map&lt;String, String&gt; params, String curServer) throws NacosException {
+<span class="nc" id="L391">        return callServer(api, params, curServer, HttpMethod.GET);</span>
+    }
+
+    public String callServer(String api, Map&lt;String, String&gt; params, String curServer, String method)
+        throws NacosException {
+<span class="nc" id="L396">        long start = System.currentTimeMillis();</span>
+<span class="nc" id="L397">        long end = 0;</span>
+<span class="nc" id="L398">        checkSignature(params);</span>
+<span class="nc" id="L399">        List&lt;String&gt; headers = builderHeaders();</span>
+
+        String url;
+<span class="nc bnc" id="L402" title="All 4 branches missed.">        if (curServer.startsWith(UtilAndComs.HTTPS) || curServer.startsWith(UtilAndComs.HTTP)) {</span>
+<span class="nc" id="L403">            url = curServer + api;</span>
+        } else {
+<span class="nc bnc" id="L405" title="All 2 branches missed.">            if (!curServer.contains(UtilAndComs.SERVER_ADDR_IP_SPLITER)) {</span>
+<span class="nc" id="L406">                curServer = curServer + UtilAndComs.SERVER_ADDR_IP_SPLITER + serverPort;</span>
+            }
+<span class="nc" id="L408">            url = HttpClient.getPrefix() + curServer + api;</span>
+        }
+
+<span class="nc" id="L411">        HttpClient.HttpResult result = HttpClient.request(url, headers, params, UtilAndComs.ENCODING, method);</span>
+<span class="nc" id="L412">        end = System.currentTimeMillis();</span>
+
+<span class="nc" id="L414">        MetricsMonitor.getNamingRequestMonitor(method, url, String.valueOf(result.code))</span>
+<span class="nc" id="L415">            .observe(end - start);</span>
+
+<span class="nc bnc" id="L417" title="All 2 branches missed.">        if (HttpURLConnection.HTTP_OK == result.code) {</span>
+<span class="nc" id="L418">            return result.content;</span>
+        }
+
+<span class="nc bnc" id="L421" title="All 2 branches missed.">        if (HttpURLConnection.HTTP_NOT_MODIFIED == result.code) {</span>
+<span class="nc" id="L422">            return StringUtils.EMPTY;</span>
+        }
+
+<span class="nc" id="L425">        throw new NacosException(NacosException.SERVER_ERROR, &quot;failed to req API:&quot;</span>
+            + curServer + api + &quot;. code:&quot;
+            + result.code + &quot; msg: &quot; + result.content);
+    }
+
+    public String reqAPI(String api, Map&lt;String, String&gt; params, List&lt;String&gt; servers) {
+<span class="nc" id="L431">        return reqAPI(api, params, servers, HttpMethod.GET);</span>
+    }
+
+    public String reqAPI(String api, Map&lt;String, String&gt; params, List&lt;String&gt; servers, String method) {
+
+<span class="nc" id="L436">        params.put(CommonParams.NAMESPACE_ID, getNamespaceId());</span>
+
+<span class="nc bnc" id="L438" title="All 4 branches missed.">        if (CollectionUtils.isEmpty(servers) &amp;&amp; StringUtils.isEmpty(nacosDomain)) {</span>
+<span class="nc" id="L439">            throw new IllegalArgumentException(&quot;no server available&quot;);</span>
+        }
+
+<span class="nc" id="L442">        Exception exception = new Exception();</span>
+
+<span class="nc bnc" id="L444" title="All 4 branches missed.">        if (servers != null &amp;&amp; !servers.isEmpty()) {</span>
+
+<span class="nc" id="L446">            Random random = new Random(System.currentTimeMillis());</span>
+<span class="nc" id="L447">            int index = random.nextInt(servers.size());</span>
+
+<span class="nc bnc" id="L449" title="All 2 branches missed.">            for (int i = 0; i &lt; servers.size(); i++) {</span>
+<span class="nc" id="L450">                String server = servers.get(index);</span>
+                try {
+<span class="nc" id="L452">                    return callServer(api, params, server, method);</span>
+<span class="nc" id="L453">                } catch (NacosException e) {</span>
+<span class="nc" id="L454">                    exception = e;</span>
+<span class="nc" id="L455">                    NAMING_LOGGER.error(&quot;request {} failed.&quot;, server, e);</span>
+<span class="nc" id="L456">                } catch (Exception e) {</span>
+<span class="nc" id="L457">                    exception = e;</span>
+<span class="nc" id="L458">                    NAMING_LOGGER.error(&quot;request {} failed.&quot;, server, e);</span>
+<span class="nc" id="L459">                }</span>
+
+<span class="nc" id="L461">                index = (index + 1) % servers.size();</span>
+            }
+
+<span class="nc" id="L464">            throw new IllegalStateException(&quot;failed to req API:&quot; + api + &quot; after all servers(&quot; + servers + &quot;) tried: &quot;</span>
+<span class="nc" id="L465">                + exception.getMessage());</span>
+        }
+
+<span class="nc bnc" id="L468" title="All 2 branches missed.">        for (int i = 0; i &lt; UtilAndComs.REQUEST_DOMAIN_RETRY_COUNT; i++) {</span>
+            try {
+<span class="nc" id="L470">                return callServer(api, params, nacosDomain);</span>
+<span class="nc" id="L471">            } catch (Exception e) {</span>
+<span class="nc" id="L472">                exception = e;</span>
+<span class="nc" id="L473">                NAMING_LOGGER.error(&quot;[NA] req api:&quot; + api + &quot; failed, server(&quot; + nacosDomain, e);</span>
+            }
+        }
+
+<span class="nc" id="L477">        throw new IllegalStateException(&quot;failed to req API:/api/&quot; + api + &quot; after all servers(&quot; + servers + &quot;) tried: &quot;</span>
+<span class="nc" id="L478">            + exception.getMessage());</span>
+
+    }
+
+    private void checkSignature(Map&lt;String, String&gt; params) {
+<span class="nc" id="L483">        String ak = getAccessKey();</span>
+<span class="nc" id="L484">        String sk = getSecretKey();</span>
+<span class="nc" id="L485">        params.put(&quot;app&quot;, AppNameUtils.getAppName());</span>
+<span class="nc bnc" id="L486" title="All 4 branches missed.">        if (StringUtils.isEmpty(ak) &amp;&amp; StringUtils.isEmpty(sk)) {</span>
+<span class="nc" id="L487">            return;</span>
+        }
+
+        try {
+<span class="nc" id="L491">            String signData = getSignData(params.get(&quot;serviceName&quot;));</span>
+<span class="nc" id="L492">            String signature = SignUtil.sign(signData, sk);</span>
+<span class="nc" id="L493">            params.put(&quot;signature&quot;, signature);</span>
+<span class="nc" id="L494">            params.put(&quot;data&quot;, signData);</span>
+<span class="nc" id="L495">            params.put(&quot;ak&quot;, ak);</span>
+<span class="nc" id="L496">        } catch (Exception e) {</span>
+<span class="nc" id="L497">            e.printStackTrace();</span>
+<span class="nc" id="L498">        }</span>
+<span class="nc" id="L499">    }</span>
+
+    public List&lt;String&gt; builderHeaders() {
+<span class="nc" id="L502">        List&lt;String&gt; headers = Arrays.asList(&quot;Client-Version&quot;, UtilAndComs.VERSION,</span>
+            &quot;User-Agent&quot;, UtilAndComs.VERSION,
+            &quot;Accept-Encoding&quot;, &quot;gzip,deflate,sdch&quot;,
+            &quot;Connection&quot;, &quot;Keep-Alive&quot;,
+<span class="nc" id="L506">            &quot;RequestId&quot;, UuidUtils.generateUuid(), &quot;Request-Module&quot;, &quot;Naming&quot;);</span>
+<span class="nc" id="L507">        return headers;</span>
+    }
+
+    private static String getSignData(String serviceName) {
+<span class="nc bnc" id="L511" title="All 2 branches missed.">        return StringUtils.isNotEmpty(serviceName)</span>
+<span class="nc" id="L512">            ? System.currentTimeMillis() + &quot;@@&quot; + serviceName</span>
+<span class="nc" id="L513">            : String.valueOf(System.currentTimeMillis());</span>
+    }
+
+    public String getAccessKey() {
+<span class="nc bnc" id="L517" title="All 2 branches missed.">        if (properties == null) {</span>
+
+<span class="nc" id="L519">            return SpasAdapter.getAk();</span>
+        }
+
+<span class="nc" id="L522">        return TemplateUtils.stringEmptyAndThenExecute(properties.getProperty(PropertyKeyConst.ACCESS_KEY), new Callable&lt;String&gt;() {</span>
+
+            @Override
+            public String call() {
+<span class="nc" id="L526">                return SpasAdapter.getAk();</span>
+            }
+        });
+    }
+
+    public String getSecretKey() {
+<span class="nc bnc" id="L532" title="All 2 branches missed.">        if (properties == null) {</span>
+
+<span class="nc" id="L534">            return SpasAdapter.getSk();</span>
+        }
+
+<span class="nc" id="L537">        return TemplateUtils.stringEmptyAndThenExecute(properties.getProperty(PropertyKeyConst.SECRET_KEY), new Callable&lt;String&gt;() {</span>
+            @Override
+            public String call() throws Exception {
+<span class="nc" id="L540">                return SpasAdapter.getSk();</span>
+            }
+        });
+    }
+
+    public void setProperties(Properties properties) {
+<span class="nc" id="L546">        this.properties = properties;</span>
+<span class="nc" id="L547">        setServerPort(DEFAULT_SERVER_PORT);</span>
+<span class="nc" id="L548">    }</span>
+
+    public String getNamespaceId() {
+<span class="nc" id="L551">        return namespaceId;</span>
+    }
+
+    public void setServerPort(int serverPort) {
+<span class="nc" id="L555">        this.serverPort = serverPort;</span>
+
+<span class="nc" id="L557">        String sp = System.getProperty(SystemPropertyKeyConst.NAMING_SERVER_PORT);</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">        if (com.alibaba.nacos.client.utils.StringUtils.isNotBlank(sp)) {</span>
+<span class="nc" id="L559">            this.serverPort = Integer.parseInt(sp);</span>
+        }
+<span class="nc" id="L561">    }</span>
+    
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

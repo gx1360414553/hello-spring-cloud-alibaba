@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InetUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-core 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.core.utils</a> &gt; <span class="el_source">InetUtils.java</span></div><h1>InetUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.alibaba.nacos.core.utils;
+
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.alibaba.nacos.core.utils.Constants.*;
+
+/**
+ * @author Nacos
+ */
+<span class="nc" id="L39">public class InetUtils {</span>
+
+<span class="fc" id="L41">    private static final Logger log = LoggerFactory.getLogger(InetUtils.class);</span>
+
+    private static String selfIp;
+
+<span class="fc" id="L45">    private static boolean useOnlySiteLocalInterface = false;</span>
+
+<span class="fc" id="L47">    private static boolean preferHostnameOverIp = false;</span>
+
+<span class="fc" id="L49">    private static List&lt;String&gt; preferredNetworks = new ArrayList&lt;String&gt;();</span>
+
+<span class="fc" id="L51">    private static List&lt;String&gt; ignoredInterfaces = new ArrayList&lt;String&gt;();</span>
+
+    static {
+<span class="fc" id="L54">        useOnlySiteLocalInterface = Boolean.valueOf(PropertyUtil.getProperty(USE_ONLY_SITE_INTERFACES));</span>
+
+<span class="fc" id="L56">        List&lt;String&gt; networks = PropertyUtil.getPropertyList(PREFERRED_NETWORKS);</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">        for (String preferred : networks) {</span>
+<span class="nc" id="L58">            preferredNetworks.add(preferred);</span>
+<span class="nc" id="L59">        }</span>
+
+<span class="fc" id="L61">        List&lt;String&gt; interfaces = PropertyUtil.getPropertyList(IGNORED_INTERFACES);</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        for (String ignored : interfaces) {</span>
+<span class="nc" id="L63">            ignoredInterfaces.add(ignored);</span>
+<span class="nc" id="L64">        }</span>
+
+<span class="fc" id="L66">        String nacosIp = System.getProperty(NACOS_SERVER_IP);</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        if (StringUtils.isBlank(nacosIp)) {</span>
+<span class="fc" id="L68">            nacosIp = PropertyUtil.getProperty(IP_ADDRESS);</span>
+        }
+
+<span class="pc bpc" id="L71" title="3 of 4 branches missed.">        if (!StringUtils.isBlank(nacosIp) &amp;&amp; !isIP(nacosIp)) {</span>
+<span class="nc" id="L72">            throw new RuntimeException(&quot;nacos address &quot; + nacosIp + &quot; is not ip&quot;);</span>
+        }
+
+<span class="fc" id="L75">        selfIp = nacosIp;</span>
+
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">        if (StringUtils.isBlank(selfIp)) {</span>
+<span class="fc" id="L78">            preferHostnameOverIp = Boolean.getBoolean(SYSTEM_PREFER_HOSTNAME_OVER_IP);</span>
+
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">            if (!preferHostnameOverIp) {</span>
+<span class="fc" id="L81">                preferHostnameOverIp = Boolean.parseBoolean(PropertyUtil.getProperty(PREFER_HOSTNAME_OVER_IP));</span>
+            }
+
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">            if (preferHostnameOverIp) {</span>
+<span class="nc" id="L85">                InetAddress inetAddress = null;</span>
+                try {
+<span class="nc" id="L87">                    inetAddress = InetAddress.getLocalHost();</span>
+<span class="nc" id="L88">                } catch (UnknownHostException e) {</span>
+<span class="nc" id="L89">                }</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                if (inetAddress.getHostName().equals(inetAddress.getCanonicalHostName())) {</span>
+<span class="nc" id="L91">                    selfIp = inetAddress.getHostName();</span>
+                } else {
+<span class="nc" id="L93">                    selfIp = inetAddress.getCanonicalHostName();</span>
+                }
+<span class="nc" id="L95">            } else {</span>
+<span class="fc" id="L96">                selfIp = findFirstNonLoopbackAddress().getHostAddress();</span>
+            }
+        }
+<span class="fc" id="L99">    }</span>
+
+    public static String getSelfIp() {
+<span class="fc" id="L102">        return selfIp;</span>
+    }
+
+    public static InetAddress findFirstNonLoopbackAddress() {
+<span class="fc" id="L106">        InetAddress result = null;</span>
+
+        try {
+<span class="fc" id="L109">            int lowest = Integer.MAX_VALUE;</span>
+            for (Enumeration&lt;NetworkInterface&gt; nics = NetworkInterface
+<span class="fc bfc" id="L111" title="All 2 branches covered.">                .getNetworkInterfaces(); nics.hasMoreElements(); ) {</span>
+<span class="fc" id="L112">                NetworkInterface ifc = nics.nextElement();</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">                if (ifc.isUp()) {</span>
+<span class="fc" id="L114">                    log.info(&quot;Testing interface: &quot; + ifc.getDisplayName());</span>
+<span class="fc bfc" id="L115" title="All 4 branches covered.">                    if (ifc.getIndex() &lt; lowest || result == null) {</span>
+<span class="fc" id="L116">                        lowest = ifc.getIndex();</span>
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">                    } else if (result != null) {</span>
+<span class="fc" id="L118">                        continue;</span>
+                    }
+
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">                    if (!ignoreInterface(ifc.getDisplayName())) {</span>
+<span class="fc" id="L122">                        for (Enumeration&lt;InetAddress&gt; addrs = ifc</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">                            .getInetAddresses(); addrs.hasMoreElements(); ) {</span>
+<span class="fc" id="L124">                            InetAddress address = addrs.nextElement();</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">                            if (address instanceof Inet4Address</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">                                &amp;&amp; !address.isLoopbackAddress()</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">                                &amp;&amp; isPreferredAddress(address)) {</span>
+<span class="fc" id="L128">                                log.info(&quot;Found non-loopback interface: &quot;</span>
+<span class="fc" id="L129">                                    + ifc.getDisplayName());</span>
+<span class="fc" id="L130">                                result = address;</span>
+                            }
+<span class="fc" id="L132">                        }</span>
+                    }
+                }
+<span class="fc" id="L135">            }</span>
+<span class="nc" id="L136">        } catch (IOException ex) {</span>
+<span class="nc" id="L137">            log.error(&quot;Cannot get first non-loopback address&quot;, ex);</span>
+<span class="fc" id="L138">        }</span>
+
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">        if (result != null) {</span>
+<span class="fc" id="L141">            return result;</span>
+        }
+
+        try {
+<span class="nc" id="L145">            return InetAddress.getLocalHost();</span>
+<span class="nc" id="L146">        } catch (UnknownHostException e) {</span>
+<span class="nc" id="L147">            log.warn(&quot;Unable to retrieve localhost&quot;);</span>
+        }
+
+<span class="nc" id="L150">        return null;</span>
+    }
+
+    public static boolean isPreferredAddress(InetAddress address) {
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">        if (useOnlySiteLocalInterface) {</span>
+<span class="nc" id="L155">            final boolean siteLocalAddress = address.isSiteLocalAddress();</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (!siteLocalAddress) {</span>
+<span class="nc" id="L157">                log.info(&quot;Ignoring address: &quot; + address.getHostAddress());</span>
+            }
+<span class="nc" id="L159">            return siteLocalAddress;</span>
+        }
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        if (preferredNetworks.isEmpty()) {</span>
+<span class="fc" id="L162">            return true;</span>
+        }
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        for (String regex : preferredNetworks) {</span>
+<span class="nc" id="L165">            final String hostAddress = address.getHostAddress();</span>
+<span class="nc bnc" id="L166" title="All 4 branches missed.">            if (hostAddress.matches(regex) || hostAddress.startsWith(regex)) {</span>
+<span class="nc" id="L167">                return true;</span>
+            }
+<span class="nc" id="L169">        }</span>
+
+<span class="nc" id="L171">        return false;</span>
+    }
+
+    public static boolean ignoreInterface(String interfaceName) {
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        for (String regex : ignoredInterfaces) {</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">            if (interfaceName.matches(regex)) {</span>
+<span class="nc" id="L177">                log.info(&quot;Ignoring interface: &quot; + interfaceName);</span>
+<span class="nc" id="L178">                return true;</span>
+            }
+<span class="nc" id="L180">        }</span>
+<span class="fc" id="L181">        return false;</span>
+    }
+
+    public static boolean isIP(String str) {
+<span class="nc" id="L185">        String num = &quot;(25[0-5]|2[0-4]\\d|[0-1]\\d{2}|[1-9]?\\d)&quot;;</span>
+<span class="nc" id="L186">        String regex = &quot;^&quot; + num + &quot;\\.&quot; + num + &quot;\\.&quot; + num + &quot;\\.&quot; + num + &quot;$&quot;;</span>
+<span class="nc" id="L187">        return match(regex, str);</span>
+    }
+
+    public static boolean match(String regex, String str) {
+<span class="nc" id="L191">        Pattern pattern = Pattern.compile(regex);</span>
+<span class="nc" id="L192">        Matcher matcher = pattern.matcher(str);</span>
+<span class="nc" id="L193">        return matcher.matches();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

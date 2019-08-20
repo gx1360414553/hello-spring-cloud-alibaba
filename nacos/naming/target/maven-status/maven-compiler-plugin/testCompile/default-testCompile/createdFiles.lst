@@ -1,0 +1,17 @@
+com\alibaba\nacos\naming\core\ServiceManagerTest.class
+com\alibaba\nacos\naming\core\ClusterTest.class
+com\alibaba\nacos\naming\consistency\ephemeral\distro\TaskDispatcherTest.class
+com\alibaba\nacos\naming\raft\RaftStoreTest.class
+com\alibaba\nacos\naming\BaseTest.class
+com\alibaba\nacos\naming\core\DomainTest.class
+com\alibaba\nacos\naming\controllers\ClusterControllerTest.class
+com\alibaba\nacos\naming\core\ServiceTest.class
+com\alibaba\nacos\naming\controllers\CatalogControllerTest.class
+com\alibaba\nacos\naming\healthcheck\ClientBeatCheckTaskTest.class
+com\alibaba\nacos\naming\core\SubscribeManagerTest.class
+com\alibaba\nacos\naming\selector\LabelSelectorTest.class
+com\alibaba\nacos\naming\misc\UtilsAndCommonsTest.class
+com\alibaba\nacos\naming\controllers\InstanceControllerTest.class
+com\alibaba\nacos\naming\core\DomainsManagerTest.class
+com\alibaba\nacos\naming\pojo\SubscriberTest.class
+com\alibaba\nacos\naming\core\InstanceTest.class

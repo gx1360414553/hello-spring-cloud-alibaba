@@ -1,0 +1,6 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+nacos-example 1.1.3,com.alibaba.nacos.example,NamingExample.new EventListener() {...},14,0,0,0,4,0,2,0,2,0
+nacos-example 1.1.3,com.alibaba.nacos.example,App,38,0,0,0,9,0,2,0,2,0
+nacos-example 1.1.3,com.alibaba.nacos.example,ConfigExample,79,0,0,0,22,0,2,0,2,0
+nacos-example 1.1.3,com.alibaba.nacos.example,ConfigExample.new Listener() {...},16,0,0,0,4,0,3,0,3,0
+nacos-example 1.1.3,com.alibaba.nacos.example,NamingExample,57,0,0,0,12,0,2,0,2,0

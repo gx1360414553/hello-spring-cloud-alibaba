@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StringUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.utils</a> &gt; <span class="el_source">StringUtils.java</span></div><h1>StringUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.utils;
+
+import java.io.IOException;
+import java.io.StringWriter;
+import java.io.Writer;
+import java.util.Collection;
+import java.util.Locale;
+
+/**
+ * string util
+ *
+ * @author Nacos
+ */
+<span class="nc" id="L29">public class StringUtils {</span>
+
+    private static final int INDEX_NOT_FOUND = -1;
+
+    public static final String EMPTY = &quot;&quot;;
+
+    public static boolean isBlank(String str) {
+        int strLen;
+<span class="pc bpc" id="L37" title="1 of 4 branches missed.">        if (str == null || (strLen = str.length()) == 0) {</span>
+<span class="fc" id="L38">            return true;</span>
+        }
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        for (int i = 0; i &lt; strLen; i++) {</span>
+<span class="fc bfc" id="L41" title="All 2 branches covered.">            if (!Character.isWhitespace(str.charAt(i))) {</span>
+<span class="fc" id="L42">                return false;</span>
+            }
+        }
+<span class="fc" id="L45">        return true;</span>
+    }
+
+    public static boolean isNotBlank(String str) {
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        return !isBlank(str);</span>
+    }
+
+    public static boolean isNotEmpty(String str) {
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        return !StringUtils.isEmpty(str);</span>
+    }
+
+    public static boolean isEmpty(String str) {
+<span class="pc bpc" id="L57" title="1 of 4 branches missed.">        return str == null || str.length() == 0;</span>
+    }
+
+    public static String defaultIfEmpty(String str, String defaultStr) {
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        return StringUtils.isEmpty(str) ? defaultStr : str;</span>
+    }
+
+    public static boolean equals(String str1, String str2) {
+<span class="pc bpc" id="L65" title="3 of 4 branches missed.">        return str1 == null ? str2 == null : str1.equals(str2);</span>
+    }
+
+    public static String substringBetween(String str, String open, String close) {
+<span class="pc bpc" id="L69" title="2 of 6 branches missed.">        if (str == null || open == null || close == null) {</span>
+<span class="fc" id="L70">            return null;</span>
+        }
+<span class="fc" id="L72">        int start = str.indexOf(open);</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        if (start != INDEX_NOT_FOUND) {</span>
+<span class="fc" id="L74">            int end = str.indexOf(close, start + open.length());</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">            if (end != INDEX_NOT_FOUND) {</span>
+<span class="fc" id="L76">                return str.substring(start + open.length(), end);</span>
+            }
+        }
+<span class="fc" id="L79">        return null;</span>
+    }
+
+    public static String join(Collection collection, String separator) {
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        if (collection == null) {</span>
+<span class="fc" id="L84">            return null;</span>
+        }
+
+<span class="fc" id="L87">        StringBuilder stringBuilder = new StringBuilder();</span>
+<span class="fc" id="L88">        Object[] objects = collection.toArray();</span>
+
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        for (int i = 0; i &lt; collection.size() - 1; i++) {</span>
+<span class="fc" id="L91">            stringBuilder.append(objects[i].toString()).append(separator);</span>
+        }
+
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (collection.size() &gt; 0) {</span>
+<span class="fc" id="L95">            stringBuilder.append(objects[collection.size() - 1]);</span>
+        }
+
+<span class="fc" id="L98">        return stringBuilder.toString();</span>
+    }
+
+    public static String escapeJavaScript(String str) {
+<span class="nc" id="L102">        return escapeJavaStyleString(str, true, true);</span>
+    }
+
+    private static String escapeJavaStyleString(String str, boolean escapeSingleQuotes, boolean escapeForwardSlash) {
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        if (str == null) {</span>
+<span class="nc" id="L107">            return null;</span>
+        }
+        try {
+<span class="nc" id="L110">            StringWriter writer = new StringWriter(str.length() * 2);</span>
+<span class="nc" id="L111">            escapeJavaStyleString(writer, str, escapeSingleQuotes, escapeForwardSlash);</span>
+<span class="nc" id="L112">            return writer.toString();</span>
+<span class="nc" id="L113">        } catch (IOException ioe) {</span>
+            // this should never ever happen while writing to a StringWriter
+<span class="nc" id="L115">            return null;</span>
+        }
+    }
+
+    private static String hex(char ch) {
+<span class="nc" id="L120">        return Integer.toHexString(ch).toUpperCase(Locale.ENGLISH);</span>
+    }
+
+    private static void escapeJavaStyleString(Writer out, String str, boolean escapeSingleQuote,
+                                              boolean escapeForwardSlash) throws IOException {
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (out == null) {</span>
+<span class="nc" id="L126">            throw new IllegalArgumentException(&quot;The Writer must not be null&quot;);</span>
+        }
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (str == null) {</span>
+<span class="nc" id="L129">            return;</span>
+        }
+        int sz;
+<span class="nc" id="L132">        sz = str.length();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        for (int i = 0; i &lt; sz; i++) {</span>
+<span class="nc" id="L134">            char ch = str.charAt(i);</span>
+
+            // handle unicode
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (ch &gt; 0xfff) {</span>
+<span class="nc" id="L138">                out.write(&quot;\\u&quot; + hex(ch));</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">            } else if (ch &gt; 0xff) {</span>
+<span class="nc" id="L140">                out.write(&quot;\\u0&quot; + hex(ch));</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            } else if (ch &gt; 0x7f) {</span>
+<span class="nc" id="L142">                out.write(&quot;\\u00&quot; + hex(ch));</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">            } else if (ch &lt; 32) {</span>
+<span class="nc bnc" id="L144" title="All 6 branches missed.">                switch (ch) {</span>
+                    case '\b':
+<span class="nc" id="L146">                        out.write('\\');</span>
+<span class="nc" id="L147">                        out.write('b');</span>
+<span class="nc" id="L148">                        break;</span>
+                    case '\n':
+<span class="nc" id="L150">                        out.write('\\');</span>
+<span class="nc" id="L151">                        out.write('n');</span>
+<span class="nc" id="L152">                        break;</span>
+                    case '\t':
+<span class="nc" id="L154">                        out.write('\\');</span>
+<span class="nc" id="L155">                        out.write('t');</span>
+<span class="nc" id="L156">                        break;</span>
+                    case '\f':
+<span class="nc" id="L158">                        out.write('\\');</span>
+<span class="nc" id="L159">                        out.write('f');</span>
+<span class="nc" id="L160">                        break;</span>
+                    case '\r':
+<span class="nc" id="L162">                        out.write('\\');</span>
+<span class="nc" id="L163">                        out.write('r');</span>
+<span class="nc" id="L164">                        break;</span>
+                    default:
+<span class="nc bnc" id="L166" title="All 2 branches missed.">                        if (ch &gt; 0xf) {</span>
+<span class="nc" id="L167">                            out.write(&quot;\\u00&quot; + hex(ch));</span>
+                        } else {
+<span class="nc" id="L169">                            out.write(&quot;\\u000&quot; + hex(ch));</span>
+                        }
+<span class="nc" id="L171">                        break;</span>
+                }
+            } else {
+<span class="nc bnc" id="L174" title="All 5 branches missed.">                switch (ch) {</span>
+                    case '\'':
+<span class="nc bnc" id="L176" title="All 2 branches missed.">                        if (escapeSingleQuote) {</span>
+<span class="nc" id="L177">                            out.write('\\');</span>
+                        }
+<span class="nc" id="L179">                        out.write('\'');</span>
+<span class="nc" id="L180">                        break;</span>
+                    case '&quot;':
+<span class="nc" id="L182">                        out.write('\\');</span>
+<span class="nc" id="L183">                        out.write('&quot;');</span>
+<span class="nc" id="L184">                        break;</span>
+                    case '\\':
+<span class="nc" id="L186">                        out.write('\\');</span>
+<span class="nc" id="L187">                        out.write('\\');</span>
+<span class="nc" id="L188">                        break;</span>
+                    case '/':
+<span class="nc bnc" id="L190" title="All 2 branches missed.">                        if (escapeForwardSlash) {</span>
+<span class="nc" id="L191">                            out.write('\\');</span>
+                        }
+<span class="nc" id="L193">                        out.write('/');</span>
+<span class="nc" id="L194">                        break;</span>
+                    default:
+<span class="nc" id="L196">                        out.write(ch);</span>
+                        break;
+                }
+            }
+        }
+<span class="nc" id="L201">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

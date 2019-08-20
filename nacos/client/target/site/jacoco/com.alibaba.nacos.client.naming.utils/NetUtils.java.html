@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NetUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.utils</a> &gt; <span class="el_source">NetUtils.java</span></div><h1>NetUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.utils;
+
+import com.alibaba.nacos.client.utils.StringUtils;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+/**
+ * @author xuanyin.zy
+ */
+<span class="nc" id="L26">public class NetUtils {</span>
+    private static String LOCAL_IP;
+
+    public static String localIP() {
+        try {
+<span class="nc bnc" id="L31" title="All 2 branches missed.">            if (!StringUtils.isEmpty(LOCAL_IP)) {</span>
+<span class="nc" id="L32">                return LOCAL_IP;</span>
+            }
+
+<span class="nc" id="L35">            String ip = System.getProperty(&quot;com.alibaba.nacos.client.naming.local.ip&quot;, InetAddress.getLocalHost().getHostAddress());</span>
+
+<span class="nc" id="L37">            return LOCAL_IP = ip;</span>
+<span class="nc" id="L38">        } catch (UnknownHostException e) {</span>
+<span class="nc" id="L39">            return &quot;resolve_failed&quot;;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

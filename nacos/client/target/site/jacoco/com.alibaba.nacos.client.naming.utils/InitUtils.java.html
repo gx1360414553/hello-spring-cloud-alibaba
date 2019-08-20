@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InitUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.utils</a> &gt; <span class="el_source">InitUtils.java</span></div><h1>InitUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.alibaba.nacos.client.naming.utils;
+
+import com.alibaba.nacos.api.PropertyKeyConst;
+import com.alibaba.nacos.api.SystemPropertyKeyConst;
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.client.utils.*;
+
+import java.util.Properties;
+import java.util.concurrent.Callable;
+
+/**
+ * @author liaochuntao
+ * @author deshao
+ */
+<span class="nc" id="L31">public class InitUtils {</span>
+
+    /**
+     * Add a difference to the name naming. This method simply initializes the namespace for Naming.
+     * Config initialization is not the same, so it cannot be reused directly.
+     *
+     * @param properties
+     * @return
+     */
+    public static String initNamespaceForNaming(Properties properties) {
+<span class="nc" id="L41">        String tmpNamespace = null;</span>
+
+
+<span class="nc" id="L44">        String isUseCloudNamespaceParsing =</span>
+<span class="nc" id="L45">            properties.getProperty(PropertyKeyConst.IS_USE_CLOUD_NAMESPACE_PARSING,</span>
+<span class="nc" id="L46">                System.getProperty(SystemPropertyKeyConst.IS_USE_CLOUD_NAMESPACE_PARSING,</span>
+<span class="nc" id="L47">                    String.valueOf(Constants.DEFAULT_USE_CLOUD_NAMESPACE_PARSING)));</span>
+
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        if (Boolean.valueOf(isUseCloudNamespaceParsing)) {</span>
+
+<span class="nc" id="L51">            tmpNamespace = TenantUtil.getUserTenantForAns();</span>
+<span class="nc" id="L52">            tmpNamespace = TemplateUtils.stringEmptyAndThenExecute(tmpNamespace, new Callable&lt;String&gt;() {</span>
+                @Override
+                public String call() {
+<span class="nc" id="L55">                    String namespace = System.getProperty(SystemPropertyKeyConst.ANS_NAMESPACE);</span>
+<span class="nc" id="L56">                    LogUtils.NAMING_LOGGER.info(&quot;initializer namespace from System Property :&quot; + namespace);</span>
+<span class="nc" id="L57">                    return namespace;</span>
+                }
+            });
+
+<span class="nc" id="L61">            tmpNamespace = TemplateUtils.stringEmptyAndThenExecute(tmpNamespace, new Callable&lt;String&gt;() {</span>
+                @Override
+                public String call() {
+<span class="nc" id="L64">                    String namespace = System.getenv(PropertyKeyConst.SystemEnv.ALIBABA_ALIWARE_NAMESPACE);</span>
+<span class="nc" id="L65">                    LogUtils.NAMING_LOGGER.info(&quot;initializer namespace from System Environment :&quot; + namespace);</span>
+<span class="nc" id="L66">                    return namespace;</span>
+                }
+            });
+        }
+
+<span class="nc" id="L71">        tmpNamespace = TemplateUtils.stringEmptyAndThenExecute(tmpNamespace, new Callable&lt;String&gt;() {</span>
+            @Override
+            public String call() {
+<span class="nc" id="L74">                String namespace = System.getProperty(PropertyKeyConst.NAMESPACE);</span>
+<span class="nc" id="L75">                LogUtils.NAMING_LOGGER.info(&quot;initializer namespace from System Property :&quot; + namespace);</span>
+<span class="nc" id="L76">                return namespace;</span>
+            }
+        });
+
+<span class="nc bnc" id="L80" title="All 4 branches missed.">        if (StringUtils.isEmpty(tmpNamespace) &amp;&amp; properties != null) {</span>
+<span class="nc" id="L81">            tmpNamespace = properties.getProperty(PropertyKeyConst.NAMESPACE);</span>
+        }
+
+<span class="nc" id="L84">        tmpNamespace = TemplateUtils.stringEmptyAndThenExecute(tmpNamespace, new Callable&lt;String&gt;() {</span>
+            @Override
+            public String call() {
+<span class="nc" id="L87">                return UtilAndComs.DEFAULT_NAMESPACE_ID;</span>
+            }
+        });
+<span class="nc" id="L90">        return tmpNamespace;</span>
+    }
+
+    public static void initWebRootContext() {
+        // support the web context with ali-yun if the app deploy by EDAS
+<span class="nc" id="L95">        final String webContext = System.getProperty(SystemPropertyKeyConst.NAMING_WEB_CONTEXT);</span>
+<span class="nc" id="L96">        TemplateUtils.stringNotEmptyAndThenExecute(webContext, new Runnable() {</span>
+            @Override
+            public void run() {
+<span class="nc bnc" id="L99" title="All 2 branches missed.">                UtilAndComs.WEB_CONTEXT = webContext.indexOf(&quot;/&quot;) &gt; -1 ? webContext</span>
+                    : &quot;/&quot; + webContext;
+
+<span class="nc" id="L102">                UtilAndComs.NACOS_URL_BASE = UtilAndComs.WEB_CONTEXT + &quot;/v1/ns&quot;;</span>
+<span class="nc" id="L103">                UtilAndComs.NACOS_URL_INSTANCE = UtilAndComs.NACOS_URL_BASE + &quot;/instance&quot;;</span>
+<span class="nc" id="L104">            }</span>
+        });
+<span class="nc" id="L106">    }</span>
+
+    public static String initEndpoint(final Properties properties) {
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if (properties == null) {</span>
+
+<span class="nc" id="L111">            return &quot;&quot;;</span>
+        }
+        // Whether to enable domain name resolution rules
+<span class="nc" id="L114">        String isUseEndpointRuleParsing =</span>
+<span class="nc" id="L115">            properties.getProperty(PropertyKeyConst.IS_USE_ENDPOINT_PARSING_RULE,</span>
+<span class="nc" id="L116">                System.getProperty(SystemPropertyKeyConst.IS_USE_ENDPOINT_PARSING_RULE,</span>
+<span class="nc" id="L117">                    String.valueOf(ParamUtil.USE_ENDPOINT_PARSING_RULE_DEFAULT_VALUE)));</span>
+
+<span class="nc" id="L119">        boolean isUseEndpointParsingRule = Boolean.valueOf(isUseEndpointRuleParsing);</span>
+        String endpointUrl;
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (isUseEndpointParsingRule) {</span>
+            // Get the set domain name information
+<span class="nc" id="L123">            endpointUrl = ParamUtil.parsingEndpointRule(properties.getProperty(PropertyKeyConst.ENDPOINT));</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            if (StringUtils.isBlank(endpointUrl)) {</span>
+<span class="nc" id="L125">                return &quot;&quot;;</span>
+            }
+        } else {
+<span class="nc" id="L128">            endpointUrl = properties.getProperty(PropertyKeyConst.ENDPOINT);</span>
+        }
+
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        if (StringUtils.isBlank(endpointUrl)) {</span>
+<span class="nc" id="L132">            return &quot;&quot;;</span>
+        }
+
+<span class="nc" id="L135">        String endpointPort = TemplateUtils.stringEmptyAndThenExecute(System.getenv(PropertyKeyConst.SystemEnv.ALIBABA_ALIWARE_ENDPOINT_PORT), new Callable&lt;String&gt;() {</span>
+            @Override
+            public String call() {
+
+<span class="nc" id="L139">                return properties.getProperty(PropertyKeyConst.ENDPOINT_PORT);</span>
+            }
+        });
+
+<span class="nc" id="L143">        endpointPort = TemplateUtils.stringEmptyAndThenExecute(endpointPort, new Callable&lt;String&gt;() {</span>
+            @Override
+            public String call() {
+<span class="nc" id="L146">                return &quot;8080&quot;;</span>
+            }
+        });
+
+<span class="nc" id="L150">        return endpointUrl + &quot;:&quot; + endpointPort;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConfigExample.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-example 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.example</a> &gt; <span class="el_source">ConfigExample.java</span></div><h1>ConfigExample.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.example;
+
+import java.util.Properties;
+import java.util.concurrent.Executor;
+
+import com.alibaba.nacos.api.NacosFactory;
+import com.alibaba.nacos.api.config.ConfigService;
+import com.alibaba.nacos.api.config.listener.Listener;
+import com.alibaba.nacos.api.exception.NacosException;
+
+/**
+ * Config service example
+ *
+ * @author Nacos
+ */
+<span class="nc" id="L31">public class ConfigExample {</span>
+
+    public static void main(String[] args) throws NacosException, InterruptedException {
+<span class="nc" id="L34">        String serverAddr = &quot;localhost&quot;;</span>
+<span class="nc" id="L35">        String dataId = &quot;test&quot;;</span>
+<span class="nc" id="L36">        String group = &quot;DEFAULT_GROUP&quot;;</span>
+<span class="nc" id="L37">        Properties properties = new Properties();</span>
+<span class="nc" id="L38">        properties.put(&quot;serverAddr&quot;, serverAddr);</span>
+<span class="nc" id="L39">        ConfigService configService = NacosFactory.createConfigService(properties);</span>
+<span class="nc" id="L40">        String content = configService.getConfig(dataId, group, 5000);</span>
+<span class="nc" id="L41">        System.out.println(content);</span>
+<span class="nc" id="L42">        configService.addListener(dataId, group, new Listener() {</span>
+            @Override
+            public void receiveConfigInfo(String configInfo) {
+<span class="nc" id="L45">                System.out.println(&quot;receive:&quot; + configInfo);</span>
+<span class="nc" id="L46">            }</span>
+
+            @Override
+            public Executor getExecutor() {
+<span class="nc" id="L50">                return null;</span>
+            }
+        });
+
+<span class="nc" id="L54">        boolean isPublishOk = configService.publishConfig(dataId, group, &quot;content&quot;);</span>
+<span class="nc" id="L55">        System.out.println(isPublishOk);</span>
+
+<span class="nc" id="L57">        Thread.sleep(3000);</span>
+<span class="nc" id="L58">        content = configService.getConfig(dataId, group, 5000);</span>
+<span class="nc" id="L59">        System.out.println(content);</span>
+
+<span class="nc" id="L61">        boolean isRemoveOk = configService.removeConfig(dataId, group);</span>
+<span class="nc" id="L62">        System.out.println(isRemoveOk);</span>
+<span class="nc" id="L63">        Thread.sleep(3000);</span>
+
+<span class="nc" id="L65">        content = configService.getConfig(dataId, group, 5000);</span>
+<span class="nc" id="L66">        System.out.println(content);</span>
+<span class="nc" id="L67">        Thread.sleep(300000);</span>
+
+<span class="nc" id="L69">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

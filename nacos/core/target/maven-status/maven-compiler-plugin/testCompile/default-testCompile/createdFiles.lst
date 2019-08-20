@@ -1,0 +1,3 @@
+com\alibaba\nacos\core\listener\StandaloneProfileApplicationListenerTest.class
+com\alibaba\nacos\core\util\SystemUtilsTest.class
+com\alibaba\nacos\core\env\NacosDefaultPropertySourceEnvironmentPostProcessorTest.class

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AddressServerClusterController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-address 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.address.controller</a> &gt; <span class="el_source">AddressServerClusterController.java</span></div><h1>AddressServerClusterController.java</h1><pre class="source lang-java linenums">/*
+ * Copyright (C) 2019 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.address.controller;
+
+import com.alibaba.nacos.address.component.AddressServerGeneratorManager;
+import com.alibaba.nacos.address.component.AddressServerManager;
+import com.alibaba.nacos.address.constant.AddressServerConstants;
+import com.alibaba.nacos.address.misc.Loggers;
+import com.alibaba.nacos.address.util.AddressServerParamCheckUtil;
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.naming.pojo.AbstractHealthChecker;
+import com.alibaba.nacos.naming.core.Cluster;
+import com.alibaba.nacos.naming.core.Instance;
+import com.alibaba.nacos.naming.core.Service;
+import com.alibaba.nacos.naming.core.ServiceManager;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * @author pbting
+ * @date 2019-06-10 9:59 AM
+ * @since 1.1.0
+ */
+@RestController
+@RequestMapping({AddressServerConstants.ADDRESS_SERVER_REQUEST_URL + &quot;/nodes&quot;})
+<span class="nc" id="L47">public class AddressServerClusterController {</span>
+
+    @Autowired
+    private ServiceManager serviceManager;
+
+    @Autowired
+    private AddressServerManager addressServerManager;
+
+    @Autowired
+    private AddressServerGeneratorManager addressServerGeneratorManager;
+
+    /**
+     * @param product Ip list of products to be associated
+     * @param cluster Ip list of product cluster to be associated
+     * @param ips     will post ip list.
+     * @return
+     */
+    @RequestMapping(value = &quot;&quot;, method = RequestMethod.POST)
+    public ResponseEntity postCluster(@RequestParam(required = false) String product,
+                                      @RequestParam(required = false) String cluster,
+                                      @RequestParam(name = &quot;ips&quot;) String ips) {
+
+        //1. prepare the storage name for product and cluster
+<span class="nc" id="L70">        String productName = addressServerGeneratorManager.generateProductName(product);</span>
+<span class="nc" id="L71">        String clusterName = addressServerManager.getDefaultClusterNameIfEmpty(cluster);</span>
+
+        //2. prepare the response name for product and cluster to client
+<span class="nc" id="L74">        String rawProductName = addressServerManager.getRawProductName(product);</span>
+<span class="nc" id="L75">        String rawClusterName = addressServerManager.getRawClusterName(cluster);</span>
+<span class="nc" id="L76">        Loggers.addressLogger.info(&quot;put cluster node,the cluster name is &quot; + cluster + &quot;; the product name=&quot; + product + &quot;; the ip list=&quot; + ips);</span>
+        ResponseEntity responseEntity;
+        try {
+<span class="nc" id="L79">            String serviceName = addressServerGeneratorManager.generateNacosServiceName(productName);</span>
+
+<span class="nc" id="L81">            Cluster clusterObj = new Cluster();</span>
+<span class="nc" id="L82">            clusterObj.setName(clusterName);</span>
+<span class="nc" id="L83">            clusterObj.setHealthChecker(new AbstractHealthChecker.None());</span>
+<span class="nc" id="L84">            serviceManager.createServiceIfAbsent(Constants.DEFAULT_NAMESPACE_ID, serviceName, false, clusterObj);</span>
+<span class="nc" id="L85">            String[] ipArray = addressServerManager.splitIps(ips);</span>
+<span class="nc" id="L86">            String checkResult = AddressServerParamCheckUtil.checkIps(ipArray);</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">            if (AddressServerParamCheckUtil.CHECK_OK.equals(checkResult)) {</span>
+<span class="nc" id="L88">                List&lt;Instance&gt; instanceList = addressServerGeneratorManager.generateInstancesByIps(serviceName, rawProductName, clusterName, ipArray);</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">                for (Instance instance : instanceList) {</span>
+<span class="nc" id="L90">                    serviceManager.registerInstance(Constants.DEFAULT_NAMESPACE_ID, serviceName, instance);</span>
+<span class="nc" id="L91">                }</span>
+<span class="nc" id="L92">                responseEntity = ResponseEntity.ok(&quot;product=&quot; + rawProductName + &quot;,cluster=&quot; + rawClusterName + &quot;; put success with size=&quot; + instanceList.size());</span>
+<span class="nc" id="L93">            } else {</span>
+<span class="nc" id="L94">                responseEntity = ResponseEntity.status(HttpStatus.BAD_REQUEST).body(checkResult);</span>
+            }
+<span class="nc" id="L96">        } catch (Exception e) {</span>
+<span class="nc" id="L97">            responseEntity = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());</span>
+<span class="nc" id="L98">        }</span>
+
+<span class="nc" id="L100">        return responseEntity;</span>
+    }
+
+    /**
+     * @param product Ip list of products to be associated
+     * @param cluster Ip list of product cluster to be associated
+     * @param ips     will delete ips.
+     * @return
+     */
+    @RequestMapping(value = &quot;&quot;, method = RequestMethod.DELETE)
+    public ResponseEntity deleteCluster(@RequestParam(required = false) String product,
+                                        @RequestParam(required = false) String cluster,
+                                        @RequestParam String ips) {
+        //1. prepare the storage name for product and cluster
+<span class="nc" id="L114">        String productName = addressServerGeneratorManager.generateProductName(product);</span>
+<span class="nc" id="L115">        String clusterName = addressServerManager.getDefaultClusterNameIfEmpty(cluster);</span>
+
+        //2. prepare the response name for product and cluster to client
+<span class="nc" id="L118">        String rawProductName = addressServerManager.getRawProductName(product);</span>
+<span class="nc" id="L119">        String rawClusterName = addressServerManager.getRawClusterName(cluster);</span>
+<span class="nc" id="L120">        ResponseEntity responseEntity = ResponseEntity.status(HttpStatus.OK).body(&quot;product=&quot; + rawProductName + &quot;, cluster=&quot; + rawClusterName + &quot; delete success.&quot;);</span>
+        try {
+
+<span class="nc" id="L123">            String serviceName = addressServerGeneratorManager.generateNacosServiceName(productName);</span>
+<span class="nc" id="L124">            Service service = serviceManager.getService(Constants.DEFAULT_NAMESPACE_ID, serviceName);</span>
+
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            if (service == null) {</span>
+<span class="nc" id="L127">                responseEntity = ResponseEntity.status(HttpStatus.NOT_FOUND).body(&quot;product=&quot; + rawProductName + &quot; not found.&quot;);</span>
+            } else {
+
+<span class="nc bnc" id="L130" title="All 2 branches missed.">                if (StringUtils.isBlank(ips)) {</span>
+                    // delete all ips from the cluster
+<span class="nc" id="L132">                    responseEntity = ResponseEntity.status(HttpStatus.BAD_REQUEST).body(&quot;ips must not be empty.&quot;);</span>
+                } else {
+                    // delete specified ip list
+<span class="nc" id="L135">                    String[] ipArray = addressServerManager.splitIps(ips);</span>
+<span class="nc" id="L136">                    String checkResult = AddressServerParamCheckUtil.checkIps(ipArray);</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">                    if (AddressServerParamCheckUtil.CHECK_OK.equals(checkResult)) {</span>
+<span class="nc" id="L138">                        List&lt;Instance&gt; instanceList = addressServerGeneratorManager.generateInstancesByIps(serviceName, rawProductName, clusterName, ipArray);</span>
+<span class="nc" id="L139">                        serviceManager.removeInstance(Constants.DEFAULT_NAMESPACE_ID, serviceName, false, instanceList.toArray(new Instance[instanceList.size()]));</span>
+<span class="nc" id="L140">                    } else {</span>
+<span class="nc" id="L141">                        responseEntity = ResponseEntity.status(HttpStatus.BAD_REQUEST).body(checkResult);</span>
+                    }
+                }
+            }
+<span class="nc" id="L145">        } catch (Exception e) {</span>
+
+<span class="nc" id="L147">            responseEntity = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getCause());</span>
+<span class="nc" id="L148">        }</span>
+
+<span class="nc" id="L150">        return responseEntity;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

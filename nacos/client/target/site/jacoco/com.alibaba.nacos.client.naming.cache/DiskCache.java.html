@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DiskCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.cache</a> &gt; <span class="el_source">DiskCache.java</span></div><h1>DiskCache.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.cache;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
+import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacos.client.utils.StringUtils;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.StringReader;
+import java.net.URLDecoder;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
+
+/**
+ * @author xuanyin
+ */
+<span class="nc" id="L40">public class DiskCache {</span>
+
+    public static void write(ServiceInfo dom, String dir) {
+
+        try {
+<span class="nc" id="L45">            makeSureCacheDirExists(dir);</span>
+
+
+<span class="nc" id="L48">            File file = new File(dir, dom.getKeyEncoded());</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">            if (!file.exists()) {</span>
+                // add another !file.exists() to avoid conflicted creating-new-file from multi-instances
+<span class="nc bnc" id="L51" title="All 4 branches missed.">                if (!file.createNewFile() &amp;&amp; !file.exists()) {</span>
+<span class="nc" id="L52">                    throw new IllegalStateException(&quot;failed to create cache file&quot;);</span>
+                }
+            }
+
+<span class="nc" id="L56">            StringBuilder keyContentBuffer = new StringBuilder(&quot;&quot;);</span>
+
+<span class="nc" id="L58">            String json = dom.getJsonFromServer();</span>
+
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            if (StringUtils.isEmpty(json)) {</span>
+<span class="nc" id="L61">                json = JSON.toJSONString(dom);</span>
+            }
+
+<span class="nc" id="L64">            keyContentBuffer.append(json);</span>
+
+            //Use the concurrent API to ensure the consistency.
+<span class="nc" id="L67">            ConcurrentDiskUtil.writeFileContent(file, keyContentBuffer.toString(), Charset.defaultCharset().toString());</span>
+
+<span class="nc" id="L69">        } catch (Throwable e) {</span>
+<span class="nc" id="L70">            NAMING_LOGGER.error(&quot;[NA] failed to write cache for dom:&quot; + dom.getName(), e);</span>
+<span class="nc" id="L71">        }</span>
+<span class="nc" id="L72">    }</span>
+
+    public static String getLineSeparator() {
+<span class="nc" id="L75">        return System.getProperty(&quot;line.separator&quot;);</span>
+    }
+
+    public static Map&lt;String, ServiceInfo&gt; read(String cacheDir) {
+<span class="nc" id="L79">        Map&lt;String, ServiceInfo&gt; domMap = new HashMap&lt;String, ServiceInfo&gt;(16);</span>
+
+<span class="nc" id="L81">        BufferedReader reader = null;</span>
+        try {
+<span class="nc" id="L83">            File[] files = makeSureCacheDirExists(cacheDir).listFiles();</span>
+<span class="nc bnc" id="L84" title="All 4 branches missed.">            if (files == null || files.length == 0) {</span>
+<span class="nc" id="L85">                return domMap;</span>
+            }
+
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            for (File file : files) {</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">                if (!file.isFile()) {</span>
+<span class="nc" id="L90">                    continue;</span>
+                }
+
+<span class="nc" id="L93">                String fileName = URLDecoder.decode(file.getName(), &quot;UTF-8&quot;);</span>
+
+<span class="nc bnc" id="L95" title="All 4 branches missed.">                if (!(fileName.endsWith(Constants.SERVICE_INFO_SPLITER + &quot;meta&quot;) || fileName.endsWith(</span>
+                    Constants.SERVICE_INFO_SPLITER + &quot;special-url&quot;))) {
+<span class="nc" id="L97">                    ServiceInfo dom = new ServiceInfo(fileName);</span>
+<span class="nc" id="L98">                    List&lt;Instance&gt; ips = new ArrayList&lt;Instance&gt;();</span>
+<span class="nc" id="L99">                    dom.setHosts(ips);</span>
+
+<span class="nc" id="L101">                    ServiceInfo newFormat = null;</span>
+
+                    try {
+<span class="nc" id="L104">                        String dataString = ConcurrentDiskUtil.getFileContent(file,</span>
+<span class="nc" id="L105">                            Charset.defaultCharset().toString());</span>
+<span class="nc" id="L106">                        reader = new BufferedReader(new StringReader(dataString));</span>
+
+                        String json;
+<span class="nc bnc" id="L109" title="All 2 branches missed.">                        while ((json = reader.readLine()) != null) {</span>
+                            try {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">                                if (!json.startsWith(&quot;{&quot;)) {</span>
+<span class="nc" id="L112">                                    continue;</span>
+                                }
+
+<span class="nc" id="L115">                                newFormat = JSON.parseObject(json, ServiceInfo.class);</span>
+
+<span class="nc bnc" id="L117" title="All 2 branches missed.">                                if (StringUtils.isEmpty(newFormat.getName())) {</span>
+<span class="nc" id="L118">                                    ips.add(JSON.parseObject(json, Instance.class));</span>
+                                }
+<span class="nc" id="L120">                            } catch (Throwable e) {</span>
+<span class="nc" id="L121">                                NAMING_LOGGER.error(&quot;[NA] error while parsing cache file: &quot; + json, e);</span>
+<span class="nc" id="L122">                            }</span>
+                        }
+<span class="nc" id="L124">                    } catch (Exception e) {</span>
+<span class="nc" id="L125">                        NAMING_LOGGER.error(&quot;[NA] failed to read cache for dom: &quot; + file.getName(), e);</span>
+                    } finally {
+<span class="nc" id="L127">                        try {</span>
+<span class="nc bnc" id="L128" title="All 6 branches missed.">                            if (reader != null) {</span>
+<span class="nc" id="L129">                                reader.close();</span>
+                            }
+<span class="nc" id="L131">                        } catch (Exception e) {</span>
+                            //ignore
+<span class="nc" id="L133">                        }</span>
+<span class="nc" id="L134">                    }</span>
+<span class="nc bnc" id="L135" title="All 6 branches missed.">                    if (newFormat != null &amp;&amp; !StringUtils.isEmpty(newFormat.getName()) &amp;&amp; !CollectionUtils.isEmpty(</span>
+<span class="nc" id="L136">                        newFormat.getHosts())) {</span>
+<span class="nc" id="L137">                        domMap.put(dom.getKey(), newFormat);</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">                    } else if (!CollectionUtils.isEmpty(dom.getHosts())) {</span>
+<span class="nc" id="L139">                        domMap.put(dom.getKey(), dom);</span>
+                    }
+                }
+
+            }
+<span class="nc" id="L144">        } catch (Throwable e) {</span>
+<span class="nc" id="L145">            NAMING_LOGGER.error(&quot;[NA] failed to read cache file&quot;, e);</span>
+<span class="nc" id="L146">        }</span>
+
+<span class="nc" id="L148">        return domMap;</span>
+    }
+
+    private static File makeSureCacheDirExists(String dir) {
+<span class="nc" id="L152">        File cacheDir = new File(dir);</span>
+<span class="nc bnc" id="L153" title="All 4 branches missed.">        if (!cacheDir.exists() &amp;&amp; !cacheDir.mkdirs()) {</span>
+<span class="nc" id="L154">            throw new IllegalStateException(&quot;failed to create cache dir: &quot; + dir);</span>
+        }
+
+<span class="nc" id="L157">        return cacheDir;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

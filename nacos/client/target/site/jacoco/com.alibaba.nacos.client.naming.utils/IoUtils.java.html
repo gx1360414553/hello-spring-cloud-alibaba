@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IoUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.utils</a> &gt; <span class="el_source">IoUtils.java</span></div><h1>IoUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.utils;
+
+
+import com.alibaba.nacos.client.utils.StringUtils;
+
+import java.io.*;
+import java.nio.channels.FileChannel;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.zip.GZIPInputStream;
+
+import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
+import static org.apache.commons.lang3.CharEncoding.UTF_8;
+
+/**
+ * @author nkorange
+ */
+<span class="nc" id="L33">public class IoUtils {</span>
+
+    static public String toString(InputStream input, String encoding) {
+
+        try {
+<span class="nc bnc" id="L38" title="All 2 branches missed.">            return (null == encoding) ? toString(new InputStreamReader(input, UTF_8))</span>
+<span class="nc" id="L39">                : toString(new InputStreamReader(input, encoding));</span>
+<span class="nc" id="L40">        } catch (Exception e) {</span>
+<span class="nc" id="L41">            NAMING_LOGGER.error(&quot;NA&quot;, &quot;read input failed.&quot;, e);</span>
+<span class="nc" id="L42">            return StringUtils.EMPTY;</span>
+        }
+    }
+
+    static public String toString(Reader reader) throws IOException {
+<span class="nc" id="L47">        CharArrayWriter sw = new CharArrayWriter();</span>
+<span class="nc" id="L48">        copy(reader, sw);</span>
+<span class="nc" id="L49">        return sw.toString();</span>
+    }
+
+    static public long copy(Reader input, Writer output) throws IOException {
+<span class="nc" id="L53">        char[] buffer = new char[1 &lt;&lt; 12];</span>
+<span class="nc" id="L54">        long count = 0;</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        for (int n = 0; (n = input.read(buffer)) &gt;= 0; ) {</span>
+<span class="nc" id="L56">            output.write(buffer, 0, n);</span>
+<span class="nc" id="L57">            count += n;</span>
+        }
+<span class="nc" id="L59">        return count;</span>
+    }
+
+    static public long copy(InputStream input, OutputStream output) throws IOException {
+<span class="nc" id="L63">        byte[] buffer = new byte[1024];</span>
+        int bytesRead;
+<span class="nc" id="L65">        int totalBytes = 0;</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        while ((bytesRead = input.read(buffer)) != -1) {</span>
+<span class="nc" id="L67">            output.write(buffer, 0, bytesRead);</span>
+
+<span class="nc" id="L69">            totalBytes += bytesRead;</span>
+        }
+
+<span class="nc" id="L72">        return totalBytes;</span>
+    }
+
+    static public List&lt;String&gt; readLines(Reader input) throws IOException {
+<span class="nc" id="L76">        BufferedReader reader = toBufferedReader(input);</span>
+<span class="nc" id="L77">        List&lt;String&gt; list = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L78">        String line = null;</span>
+        for (; ; ) {
+<span class="nc" id="L80">            line = reader.readLine();</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">            if (null != line) {</span>
+<span class="nc" id="L82">                list.add(line);</span>
+            } else {
+                break;
+            }
+        }
+<span class="nc" id="L87">        return list;</span>
+    }
+
+    static private BufferedReader toBufferedReader(Reader reader) {
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        return reader instanceof BufferedReader ? (BufferedReader) reader : new BufferedReader(</span>
+            reader);
+    }
+
+    static public void copyFile(String source, String target) throws IOException {
+<span class="nc" id="L96">        File sf = new File(source);</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        if (!sf.exists()) {</span>
+<span class="nc" id="L98">            throw new IllegalArgumentException(&quot;source file does not exist.&quot;);</span>
+        }
+<span class="nc" id="L100">        File tf = new File(target);</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        if (!tf.getParentFile().mkdirs()) {</span>
+<span class="nc" id="L102">            throw new RuntimeException(&quot;failed to create parent directory.&quot;);</span>
+        }
+<span class="nc bnc" id="L104" title="All 4 branches missed.">        if (!tf.exists() &amp;&amp; !tf.createNewFile()) {</span>
+<span class="nc" id="L105">            throw new RuntimeException(&quot;failed to create target file.&quot;);</span>
+        }
+
+<span class="nc" id="L108">        FileChannel sc = null;</span>
+<span class="nc" id="L109">        FileChannel tc = null;</span>
+        try {
+<span class="nc" id="L111">            tc = new FileOutputStream(tf).getChannel();</span>
+<span class="nc" id="L112">            sc = new FileInputStream(sf).getChannel();</span>
+<span class="nc" id="L113">            sc.transferTo(0, sc.size(), tc);</span>
+        } finally {
+<span class="nc bnc" id="L115" title="All 4 branches missed.">            if (null != sc) {</span>
+<span class="nc" id="L116">                sc.close();</span>
+            }
+<span class="nc bnc" id="L118" title="All 4 branches missed.">            if (null != tc) {</span>
+<span class="nc" id="L119">                tc.close();</span>
+            }
+<span class="nc" id="L121">        }</span>
+<span class="nc" id="L122">    }</span>
+
+    public static void delete(File fileOrDir) throws IOException {
+<span class="nc bnc" id="L125" title="All 2 branches missed.">        if (fileOrDir == null) {</span>
+<span class="nc" id="L126">            return;</span>
+        }
+
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        if (fileOrDir.isDirectory()) {</span>
+<span class="nc" id="L130">            cleanDirectory(fileOrDir);</span>
+        }
+
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (fileOrDir.delete()) {</span>
+<span class="nc" id="L134">            throw new RuntimeException(&quot;failed to delete file: &quot; + fileOrDir.getAbsolutePath());</span>
+        }
+<span class="nc" id="L136">    }</span>
+
+    public static void cleanDirectory(File directory) throws IOException {
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        if (!directory.exists()) {</span>
+<span class="nc" id="L140">            String message = directory + &quot; does not exist&quot;;</span>
+<span class="nc" id="L141">            throw new IllegalArgumentException(message);</span>
+        }
+
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        if (!directory.isDirectory()) {</span>
+<span class="nc" id="L145">            String message = directory + &quot; is not a directory&quot;;</span>
+<span class="nc" id="L146">            throw new IllegalArgumentException(message);</span>
+        }
+
+<span class="nc" id="L149">        File[] files = directory.listFiles();</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        if (files == null) {</span>
+<span class="nc" id="L151">            throw new IOException(&quot;Failed to list contents of &quot; + directory);</span>
+        }
+
+<span class="nc" id="L154">        IOException exception = null;</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">        for (File file : files) {</span>
+            try {
+<span class="nc" id="L157">                delete(file);</span>
+<span class="nc" id="L158">            } catch (IOException ioe) {</span>
+<span class="nc" id="L159">                exception = ioe;</span>
+<span class="nc" id="L160">            }</span>
+        }
+
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        if (null != exception) {</span>
+<span class="nc" id="L164">            throw exception;</span>
+        }
+<span class="nc" id="L166">    }</span>
+
+    public static boolean isGzipStream(byte[] bytes) {
+
+<span class="nc" id="L170">        int minByteArraySize = 2;</span>
+<span class="nc bnc" id="L171" title="All 4 branches missed.">        if (bytes == null || bytes.length &lt; minByteArraySize) {</span>
+<span class="nc" id="L172">            return false;</span>
+        }
+
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        return GZIPInputStream.GZIP_MAGIC == ((bytes[1] &lt;&lt; 8 | bytes[0]) &amp; 0xFFFF);</span>
+    }
+
+    public static byte[] tryDecompress(byte[] raw) throws Exception {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">        if (!isGzipStream(raw)) {</span>
+<span class="nc" id="L180">            return raw;</span>
+        }
+<span class="nc" id="L182">        GZIPInputStream gis = null;</span>
+<span class="nc" id="L183">        ByteArrayOutputStream out = null;</span>
+
+        try {
+<span class="nc" id="L186">            gis = new GZIPInputStream(new ByteArrayInputStream(raw));</span>
+<span class="nc" id="L187">            out = new ByteArrayOutputStream();</span>
+<span class="nc" id="L188">            IoUtils.copy(gis, out);</span>
+<span class="nc" id="L189">            return out.toByteArray();</span>
+        } finally {
+<span class="nc bnc" id="L191" title="All 4 branches missed.">            if (out != null) {</span>
+<span class="nc" id="L192">                out.close();</span>
+            }
+<span class="nc bnc" id="L194" title="All 4 branches missed.">            if (gis != null) {</span>
+<span class="nc" id="L195">                gis.close();</span>
+            }
+<span class="nc" id="L197">        }</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

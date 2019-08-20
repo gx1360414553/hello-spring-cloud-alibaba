@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>STSConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.identify</a> &gt; <span class="el_source">STSConfig.java</span></div><h1>STSConfig.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.identify;
+
+import com.alibaba.nacos.client.utils.StringUtils;
+
+/**
+ * Sts config
+ *
+ * @author Nacos
+ */
+@SuppressWarnings(&quot;PMD.ClassNamingShouldBeCamelRule&quot;)
+public class STSConfig {
+    private static final String RAM_SECURITY_CREDENTIALS_URL
+        = &quot;http://100.100.100.200/latest/meta-data/ram/security-credentials/&quot;;
+    private String ramRoleName;
+    /**
+     * STS 临时凭证有效期剩余多少时开始刷新（允许本地时间比 STS 服务时间最多慢多久）
+     */
+<span class="nc" id="L33">    private int timeToRefreshInMillisecond = 3 * 60 * 1000;</span>
+    /**
+     * 获取 STS 临时凭证的元数据接口（包含角色名称）
+     */
+    private String securityCredentialsUrl;
+    /**
+     * 设定 STS 临时凭证，不再通过元数据接口获取
+     */
+    private String securityCredentials;
+    /**
+     * 是否缓存
+     */
+<span class="nc" id="L45">    private boolean cacheSecurityCredentials = true;</span>
+
+<span class="nc" id="L47">    private static class Singleton {</span>
+<span class="nc" id="L48">        private static final STSConfig INSTANCE = new STSConfig();</span>
+    }
+
+<span class="nc" id="L51">    private STSConfig() {</span>
+<span class="nc" id="L52">        String ramRoleName = System.getProperty(&quot;ram.role.name&quot;);</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if (!StringUtils.isBlank(ramRoleName)) {</span>
+<span class="nc" id="L54">            setRamRoleName(ramRoleName);</span>
+        }
+
+<span class="nc" id="L57">        String timeToRefreshInMillisecond = System.getProperty(&quot;time.to.refresh.in.millisecond&quot;);</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">        if (!StringUtils.isBlank(timeToRefreshInMillisecond)) {</span>
+<span class="nc" id="L59">            setTimeToRefreshInMillisecond(Integer.parseInt(timeToRefreshInMillisecond));</span>
+        }
+
+<span class="nc" id="L62">        String securityCredentials = System.getProperty(&quot;security.credentials&quot;);</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        if (!StringUtils.isBlank(securityCredentials)) {</span>
+<span class="nc" id="L64">            setSecurityCredentials(securityCredentials);</span>
+        }
+
+<span class="nc" id="L67">        String securityCredentialsUrl = System.getProperty(&quot;security.credentials.url&quot;);</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        if (!StringUtils.isBlank(securityCredentialsUrl)) {</span>
+<span class="nc" id="L69">            setSecurityCredentialsUrl(securityCredentialsUrl);</span>
+        }
+
+<span class="nc" id="L72">        String cacheSecurityCredentials = System.getProperty(&quot;cache.security.credentials&quot;);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (!StringUtils.isBlank(cacheSecurityCredentials)) {</span>
+<span class="nc" id="L74">            setCacheSecurityCredentials(Boolean.valueOf(cacheSecurityCredentials));</span>
+        }
+<span class="nc" id="L76">    }</span>
+
+    public static STSConfig getInstance() {
+<span class="nc" id="L79">        return Singleton.INSTANCE;</span>
+    }
+
+    public String getRamRoleName() {
+<span class="nc" id="L83">        return ramRoleName;</span>
+    }
+
+    public void setRamRoleName(String ramRoleName) {
+<span class="nc" id="L87">        this.ramRoleName = ramRoleName;</span>
+<span class="nc" id="L88">    }</span>
+
+    public int getTimeToRefreshInMillisecond() {
+<span class="nc" id="L91">        return timeToRefreshInMillisecond;</span>
+    }
+
+    public void setTimeToRefreshInMillisecond(int timeToRefreshInMillisecond) {
+<span class="nc" id="L95">        this.timeToRefreshInMillisecond = timeToRefreshInMillisecond;</span>
+<span class="nc" id="L96">    }</span>
+
+    public String getSecurityCredentialsUrl() {
+<span class="nc bnc" id="L99" title="All 4 branches missed.">        if (securityCredentialsUrl == null &amp;&amp; ramRoleName != null) {</span>
+<span class="nc" id="L100">            return RAM_SECURITY_CREDENTIALS_URL + ramRoleName;</span>
+        }
+<span class="nc" id="L102">        return securityCredentialsUrl;</span>
+    }
+
+    public void setSecurityCredentialsUrl(String securityCredentialsUrl) {
+<span class="nc" id="L106">        this.securityCredentialsUrl = securityCredentialsUrl;</span>
+<span class="nc" id="L107">    }</span>
+
+    public String getSecurityCredentials() {
+<span class="nc" id="L110">        return securityCredentials;</span>
+    }
+
+    public void setSecurityCredentials(String securityCredentials) {
+<span class="nc" id="L114">        this.securityCredentials = securityCredentials;</span>
+<span class="nc" id="L115">    }</span>
+
+    public boolean isSTSOn() {
+<span class="nc bnc" id="L118" title="All 4 branches missed.">        return StringUtils.isNotEmpty(getSecurityCredentials()) || StringUtils.isNotEmpty(getSecurityCredentialsUrl());</span>
+    }
+
+    public boolean isCacheSecurityCredentials() {
+<span class="nc" id="L122">        return cacheSecurityCredentials;</span>
+    }
+
+    public void setCacheSecurityCredentials(boolean cacheSecurityCredentials) {
+<span class="nc" id="L126">        this.cacheSecurityCredentials = cacheSecurityCredentials;</span>
+<span class="nc" id="L127">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

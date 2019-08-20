@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JVMUtil.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.config.utils</a> &gt; <span class="el_source">JVMUtil.java</span></div><h1>JVMUtil.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.config.utils;
+
+import com.alibaba.nacos.client.utils.LogUtils;
+import org.slf4j.Logger;
+
+/**
+ * Get jvm config
+ *
+ * @author Nacos
+ */
+@SuppressWarnings(&quot;PMD.ClassNamingShouldBeCamelRule&quot;)
+<span class="nc" id="L27">public class JVMUtil {</span>
+
+    /**
+     * whether is multi instance
+     *
+     * @return whether multi
+     */
+    public static Boolean isMultiInstance() {
+<span class="nc" id="L35">        return isMultiInstance;</span>
+    }
+
+<span class="nc" id="L38">    private static Boolean isMultiInstance = false;</span>
+    private static final String TRUE = &quot;true&quot;;
+<span class="nc" id="L40">    private static final Logger LOGGER = LogUtils.logger(JVMUtil.class);</span>
+
+    static {
+<span class="nc" id="L43">        String multiDeploy = System.getProperty(&quot;isMultiInstance&quot;, &quot;false&quot;);</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">        if (TRUE.equals(multiDeploy)) {</span>
+<span class="nc" id="L45">            isMultiInstance = true;</span>
+        }
+<span class="nc" id="L47">        LOGGER.info(&quot;isMultiInstance:{}&quot;, isMultiInstance);</span>
+<span class="nc" id="L48">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NacosConfigService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.config</a> &gt; <span class="el_source">NacosConfigService.java</span></div><h1>NacosConfigService.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.config;
+
+import com.alibaba.nacos.api.PropertyKeyConst;
+import com.alibaba.nacos.api.SystemPropertyKeyConst;
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.config.ConfigService;
+import com.alibaba.nacos.api.config.listener.Listener;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.client.config.filter.impl.ConfigFilterChainManager;
+import com.alibaba.nacos.client.config.filter.impl.ConfigRequest;
+import com.alibaba.nacos.client.config.filter.impl.ConfigResponse;
+import com.alibaba.nacos.client.config.http.HttpAgent;
+import com.alibaba.nacos.client.config.http.MetricsHttpAgent;
+import com.alibaba.nacos.client.config.http.ServerHttpAgent;
+import com.alibaba.nacos.client.config.impl.ClientWorker;
+import com.alibaba.nacos.client.config.impl.HttpSimpleClient.HttpResult;
+import com.alibaba.nacos.client.config.impl.LocalConfigInfoProcessor;
+import com.alibaba.nacos.client.config.utils.ContentUtils;
+import com.alibaba.nacos.client.config.utils.ParamUtils;
+import com.alibaba.nacos.client.utils.LogUtils;
+import com.alibaba.nacos.client.utils.StringUtils;
+import com.alibaba.nacos.client.utils.TemplateUtils;
+import com.alibaba.nacos.client.utils.TenantUtil;
+import org.slf4j.Logger;
+
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.Callable;
+
+/**
+ * Config Impl
+ *
+ * @author Nacos
+ */
+@SuppressWarnings(&quot;PMD.ServiceOrDaoClassShouldEndWithImplRule&quot;)
+public class NacosConfigService implements ConfigService {
+
+<span class="nc" id="L57">    private static final Logger LOGGER = LogUtils.logger(NacosConfigService.class);</span>
+
+    private static final long POST_TIMEOUT = 3000L;
+
+    private static final String EMPTY = &quot;&quot;;
+
+    /**
+     * http agent
+     */
+    private HttpAgent agent;
+    /**
+     * longpolling
+     */
+    private ClientWorker worker;
+    private String namespace;
+    private String encode;
+<span class="nc" id="L73">    private ConfigFilterChainManager configFilterChainManager = new ConfigFilterChainManager();</span>
+
+<span class="nc" id="L75">    public NacosConfigService(Properties properties) throws NacosException {</span>
+<span class="nc" id="L76">        String encodeTmp = properties.getProperty(PropertyKeyConst.ENCODE);</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (StringUtils.isBlank(encodeTmp)) {</span>
+<span class="nc" id="L78">            encode = Constants.ENCODE;</span>
+        } else {
+<span class="nc" id="L80">            encode = encodeTmp.trim();</span>
+        }
+<span class="nc" id="L82">        initNamespace(properties);</span>
+<span class="nc" id="L83">        agent = new MetricsHttpAgent(new ServerHttpAgent(properties));</span>
+<span class="nc" id="L84">        agent.start();</span>
+<span class="nc" id="L85">        worker = new ClientWorker(agent, configFilterChainManager, properties);</span>
+<span class="nc" id="L86">    }</span>
+
+    private void initNamespace(Properties properties) {
+<span class="nc" id="L89">        String namespaceTmp = null;</span>
+
+<span class="nc" id="L91">        String isUseCloudNamespaceParsing =</span>
+<span class="nc" id="L92">            properties.getProperty(PropertyKeyConst.IS_USE_CLOUD_NAMESPACE_PARSING,</span>
+<span class="nc" id="L93">                System.getProperty(SystemPropertyKeyConst.IS_USE_CLOUD_NAMESPACE_PARSING,</span>
+<span class="nc" id="L94">                    String.valueOf(Constants.DEFAULT_USE_CLOUD_NAMESPACE_PARSING)));</span>
+
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (Boolean.valueOf(isUseCloudNamespaceParsing)) {</span>
+<span class="nc" id="L97">            namespaceTmp = TemplateUtils.stringBlankAndThenExecute(namespaceTmp, new Callable&lt;String&gt;() {</span>
+                @Override
+                public String call() {
+<span class="nc" id="L100">                    return TenantUtil.getUserTenantForAcm();</span>
+                }
+            });
+
+<span class="nc" id="L104">            namespaceTmp = TemplateUtils.stringBlankAndThenExecute(namespaceTmp, new Callable&lt;String&gt;() {</span>
+                @Override
+                public String call() {
+<span class="nc" id="L107">                    String namespace = System.getenv(PropertyKeyConst.SystemEnv.ALIBABA_ALIWARE_NAMESPACE);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">                    return StringUtils.isNotBlank(namespace) ? namespace : EMPTY;</span>
+                }
+            });
+        }
+
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (StringUtils.isBlank(namespaceTmp)) {</span>
+<span class="nc" id="L114">            namespaceTmp = properties.getProperty(PropertyKeyConst.NAMESPACE);</span>
+        }
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        namespace = StringUtils.isNotBlank(namespaceTmp) ? namespaceTmp.trim() : EMPTY;</span>
+<span class="nc" id="L117">        properties.put(PropertyKeyConst.NAMESPACE, namespace);</span>
+<span class="nc" id="L118">    }</span>
+
+    @Override
+    public String getConfig(String dataId, String group, long timeoutMs) throws NacosException {
+<span class="nc" id="L122">        return getConfigInner(namespace, dataId, group, timeoutMs);</span>
+    }
+
+    @Override
+    public String getConfigAndSignListener(String dataId, String group, long timeoutMs, Listener listener) throws NacosException {
+<span class="nc" id="L127">        String content = getConfig(dataId, group, timeoutMs);</span>
+<span class="nc" id="L128">        worker.addTenantListenersWithContent(dataId, group, content, Arrays.asList(listener));</span>
+<span class="nc" id="L129">        return content;</span>
+    }
+
+    @Override
+    public void addListener(String dataId, String group, Listener listener) throws NacosException {
+<span class="nc" id="L134">        worker.addTenantListeners(dataId, group, Arrays.asList(listener));</span>
+<span class="nc" id="L135">    }</span>
+
+    @Override
+    public boolean publishConfig(String dataId, String group, String content) throws NacosException {
+<span class="nc" id="L139">        return publishConfigInner(namespace, dataId, group, null, null, null, content);</span>
+    }
+
+    @Override
+    public boolean removeConfig(String dataId, String group) throws NacosException {
+<span class="nc" id="L144">        return removeConfigInner(namespace, dataId, group, null);</span>
+    }
+
+    @Override
+    public void removeListener(String dataId, String group, Listener listener) {
+<span class="nc" id="L149">        worker.removeTenantListener(dataId, group, listener);</span>
+<span class="nc" id="L150">    }</span>
+
+    private String getConfigInner(String tenant, String dataId, String group, long timeoutMs) throws NacosException {
+<span class="nc" id="L153">        group = null2defaultGroup(group);</span>
+<span class="nc" id="L154">        ParamUtils.checkKeyParam(dataId, group);</span>
+<span class="nc" id="L155">        ConfigResponse cr = new ConfigResponse();</span>
+
+<span class="nc" id="L157">        cr.setDataId(dataId);</span>
+<span class="nc" id="L158">        cr.setTenant(tenant);</span>
+<span class="nc" id="L159">        cr.setGroup(group);</span>
+
+        // 优先使用本地配置
+<span class="nc" id="L162">        String content = LocalConfigInfoProcessor.getFailover(agent.getName(), dataId, group, tenant);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        if (content != null) {</span>
+<span class="nc" id="L164">            LOGGER.warn(&quot;[{}] [get-config] get failover ok, dataId={}, group={}, tenant={}, config={}&quot;, agent.getName(),</span>
+<span class="nc" id="L165">                dataId, group, tenant, ContentUtils.truncateContent(content));</span>
+<span class="nc" id="L166">            cr.setContent(content);</span>
+<span class="nc" id="L167">            configFilterChainManager.doFilter(null, cr);</span>
+<span class="nc" id="L168">            content = cr.getContent();</span>
+<span class="nc" id="L169">            return content;</span>
+        }
+
+        try {
+<span class="nc" id="L173">            content = worker.getServerConfig(dataId, group, tenant, timeoutMs);</span>
+
+<span class="nc" id="L175">            cr.setContent(content);</span>
+
+<span class="nc" id="L177">            configFilterChainManager.doFilter(null, cr);</span>
+<span class="nc" id="L178">            content = cr.getContent();</span>
+
+<span class="nc" id="L180">            return content;</span>
+<span class="nc" id="L181">        } catch (NacosException ioe) {</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">            if (NacosException.NO_RIGHT == ioe.getErrCode()) {</span>
+<span class="nc" id="L183">                throw ioe;</span>
+            }
+<span class="nc" id="L185">            LOGGER.warn(&quot;[{}] [get-config] get from server error, dataId={}, group={}, tenant={}, msg={}&quot;,</span>
+<span class="nc" id="L186">                agent.getName(), dataId, group, tenant, ioe.toString());</span>
+        }
+
+<span class="nc" id="L189">        LOGGER.warn(&quot;[{}] [get-config] get snapshot ok, dataId={}, group={}, tenant={}, config={}&quot;, agent.getName(),</span>
+<span class="nc" id="L190">            dataId, group, tenant, ContentUtils.truncateContent(content));</span>
+<span class="nc" id="L191">        content = LocalConfigInfoProcessor.getSnapshot(agent.getName(), dataId, group, tenant);</span>
+<span class="nc" id="L192">        cr.setContent(content);</span>
+<span class="nc" id="L193">        configFilterChainManager.doFilter(null, cr);</span>
+<span class="nc" id="L194">        content = cr.getContent();</span>
+<span class="nc" id="L195">        return content;</span>
+    }
+
+    private String null2defaultGroup(String group) {
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        return (null == group) ? Constants.DEFAULT_GROUP : group.trim();</span>
+    }
+
+    private boolean removeConfigInner(String tenant, String dataId, String group, String tag) throws NacosException {
+<span class="nc" id="L203">        group = null2defaultGroup(group);</span>
+<span class="nc" id="L204">        ParamUtils.checkKeyParam(dataId, group);</span>
+<span class="nc" id="L205">        String url = Constants.CONFIG_CONTROLLER_PATH;</span>
+<span class="nc" id="L206">        List&lt;String&gt; params = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L207">        params.add(&quot;dataId&quot;);</span>
+<span class="nc" id="L208">        params.add(dataId);</span>
+<span class="nc" id="L209">        params.add(&quot;group&quot;);</span>
+<span class="nc" id="L210">        params.add(group);</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(tenant)) {</span>
+<span class="nc" id="L212">            params.add(&quot;tenant&quot;);</span>
+<span class="nc" id="L213">            params.add(tenant);</span>
+        }
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(tag)) {</span>
+<span class="nc" id="L216">            params.add(&quot;tag&quot;);</span>
+<span class="nc" id="L217">            params.add(tag);</span>
+        }
+<span class="nc" id="L219">        HttpResult result = null;</span>
+        try {
+<span class="nc" id="L221">            result = agent.httpDelete(url, null, params, encode, POST_TIMEOUT);</span>
+<span class="nc" id="L222">        } catch (IOException ioe) {</span>
+<span class="nc" id="L223">            LOGGER.warn(&quot;[remove] error, &quot; + dataId + &quot;, &quot; + group + &quot;, &quot; + tenant + &quot;, msg: &quot; + ioe.toString());</span>
+<span class="nc" id="L224">            return false;</span>
+<span class="nc" id="L225">        }</span>
+
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        if (HttpURLConnection.HTTP_OK == result.code) {</span>
+<span class="nc" id="L228">            LOGGER.info(&quot;[{}] [remove] ok, dataId={}, group={}, tenant={}&quot;, agent.getName(), dataId, group, tenant);</span>
+<span class="nc" id="L229">            return true;</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        } else if (HttpURLConnection.HTTP_FORBIDDEN == result.code) {</span>
+<span class="nc" id="L231">            LOGGER.warn(&quot;[{}] [remove] error, dataId={}, group={}, tenant={}, code={}, msg={}&quot;, agent.getName(), dataId,</span>
+<span class="nc" id="L232">                group, tenant, result.code, result.content);</span>
+<span class="nc" id="L233">            throw new NacosException(result.code, result.content);</span>
+        } else {
+<span class="nc" id="L235">            LOGGER.warn(&quot;[{}] [remove] error, dataId={}, group={}, tenant={}, code={}, msg={}&quot;, agent.getName(), dataId,</span>
+<span class="nc" id="L236">                group, tenant, result.code, result.content);</span>
+<span class="nc" id="L237">            return false;</span>
+        }
+    }
+
+    private boolean publishConfigInner(String tenant, String dataId, String group, String tag, String appName,
+                                       String betaIps, String content) throws NacosException {
+<span class="nc" id="L243">        group = null2defaultGroup(group);</span>
+<span class="nc" id="L244">        ParamUtils.checkParam(dataId, group, content);</span>
+
+<span class="nc" id="L246">        ConfigRequest cr = new ConfigRequest();</span>
+<span class="nc" id="L247">        cr.setDataId(dataId);</span>
+<span class="nc" id="L248">        cr.setTenant(tenant);</span>
+<span class="nc" id="L249">        cr.setGroup(group);</span>
+<span class="nc" id="L250">        cr.setContent(content);</span>
+<span class="nc" id="L251">        configFilterChainManager.doFilter(cr, null);</span>
+<span class="nc" id="L252">        content = cr.getContent();</span>
+
+<span class="nc" id="L254">        String url = Constants.CONFIG_CONTROLLER_PATH;</span>
+<span class="nc" id="L255">        List&lt;String&gt; params = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L256">        params.add(&quot;dataId&quot;);</span>
+<span class="nc" id="L257">        params.add(dataId);</span>
+<span class="nc" id="L258">        params.add(&quot;group&quot;);</span>
+<span class="nc" id="L259">        params.add(group);</span>
+<span class="nc" id="L260">        params.add(&quot;content&quot;);</span>
+<span class="nc" id="L261">        params.add(content);</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(tenant)) {</span>
+<span class="nc" id="L263">            params.add(&quot;tenant&quot;);</span>
+<span class="nc" id="L264">            params.add(tenant);</span>
+        }
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(appName)) {</span>
+<span class="nc" id="L267">            params.add(&quot;appName&quot;);</span>
+<span class="nc" id="L268">            params.add(appName);</span>
+        }
+<span class="nc bnc" id="L270" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(tag)) {</span>
+<span class="nc" id="L271">            params.add(&quot;tag&quot;);</span>
+<span class="nc" id="L272">            params.add(tag);</span>
+        }
+
+<span class="nc" id="L275">        List&lt;String&gt; headers = new ArrayList&lt;String&gt;();</span>
+<span class="nc bnc" id="L276" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(betaIps)) {</span>
+<span class="nc" id="L277">            headers.add(&quot;betaIps&quot;);</span>
+<span class="nc" id="L278">            headers.add(betaIps);</span>
+        }
+
+<span class="nc" id="L281">        HttpResult result = null;</span>
+        try {
+<span class="nc" id="L283">            result = agent.httpPost(url, headers, params, encode, POST_TIMEOUT);</span>
+<span class="nc" id="L284">        } catch (IOException ioe) {</span>
+<span class="nc" id="L285">            LOGGER.warn(&quot;[{}] [publish-single] exception, dataId={}, group={}, msg={}&quot;, agent.getName(), dataId,</span>
+<span class="nc" id="L286">                group, ioe.toString());</span>
+<span class="nc" id="L287">            return false;</span>
+<span class="nc" id="L288">        }</span>
+
+<span class="nc bnc" id="L290" title="All 2 branches missed.">        if (HttpURLConnection.HTTP_OK == result.code) {</span>
+<span class="nc" id="L291">            LOGGER.info(&quot;[{}] [publish-single] ok, dataId={}, group={}, tenant={}, config={}&quot;, agent.getName(), dataId,</span>
+<span class="nc" id="L292">                group, tenant, ContentUtils.truncateContent(content));</span>
+<span class="nc" id="L293">            return true;</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">        } else if (HttpURLConnection.HTTP_FORBIDDEN == result.code) {</span>
+<span class="nc" id="L295">            LOGGER.warn(&quot;[{}] [publish-single] error, dataId={}, group={}, tenant={}, code={}, msg={}&quot;, agent.getName(),</span>
+<span class="nc" id="L296">                dataId, group, tenant, result.code, result.content);</span>
+<span class="nc" id="L297">            throw new NacosException(result.code, result.content);</span>
+        } else {
+<span class="nc" id="L299">            LOGGER.warn(&quot;[{}] [publish-single] error, dataId={}, group={}, tenant={}, code={}, msg={}&quot;, agent.getName(),</span>
+<span class="nc" id="L300">                dataId, group, tenant, result.code, result.content);</span>
+<span class="nc" id="L301">            return false;</span>
+        }
+
+    }
+
+    @Override
+    public String getServerStatus() {
+<span class="nc bnc" id="L308" title="All 2 branches missed.">        if (worker.isHealthServer()) {</span>
+<span class="nc" id="L309">            return &quot;UP&quot;;</span>
+        } else {
+<span class="nc" id="L311">            return &quot;DOWN&quot;;</span>
+        }
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

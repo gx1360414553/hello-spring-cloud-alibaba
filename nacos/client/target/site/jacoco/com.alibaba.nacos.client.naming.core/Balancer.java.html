@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Balancer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.core</a> &gt; <span class="el_source">Balancer.java</span></div><h1>Balancer.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.core;
+
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
+import com.alibaba.nacos.client.naming.utils.Chooser;
+import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacos.client.naming.utils.Pair;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
+
+/**
+ * @author xuanyin
+ */
+<span class="nc" id="L33">public class Balancer {</span>
+
+    /**
+     * report status to server
+     */
+<span class="nc" id="L38">    public final static List&lt;String&gt; UNCONSISTENT_SERVICE_WITH_ADDRESS_SERVER = new CopyOnWriteArrayList&lt;String&gt;();</span>
+
+<span class="nc" id="L40">    public static class RandomByWeight {</span>
+
+        public static List&lt;Instance&gt; selectAll(ServiceInfo serviceInfo) {
+<span class="nc" id="L43">            List&lt;Instance&gt; hosts = serviceInfo.getHosts();</span>
+
+<span class="nc bnc" id="L45" title="All 2 branches missed.">            if (CollectionUtils.isEmpty(hosts)) {</span>
+<span class="nc" id="L46">                throw new IllegalStateException(&quot;no host to srv for serviceInfo: &quot; + serviceInfo.getName());</span>
+            }
+
+<span class="nc" id="L49">            return hosts;</span>
+        }
+
+        public static Instance selectHost(ServiceInfo dom) {
+
+<span class="nc" id="L54">            List&lt;Instance&gt; hosts = selectAll(dom);</span>
+
+<span class="nc bnc" id="L56" title="All 2 branches missed.">            if (CollectionUtils.isEmpty(hosts)) {</span>
+<span class="nc" id="L57">                throw new IllegalStateException(&quot;no host to srv for service: &quot; + dom.getName());</span>
+            }
+
+<span class="nc" id="L60">            return getHostByRandomWeight(hosts);</span>
+        }
+    }
+
+    /**
+     * Return one host from the host list by random-weight.
+     *
+     * @param hosts The list of the host.
+     * @return The random-weight result of the host
+     */
+    protected static Instance getHostByRandomWeight(List&lt;Instance&gt; hosts) {
+<span class="nc" id="L71">        NAMING_LOGGER.debug(&quot;entry randomWithWeight&quot;);</span>
+<span class="nc bnc" id="L72" title="All 4 branches missed.">        if (hosts == null || hosts.size() == 0) {</span>
+<span class="nc" id="L73">            NAMING_LOGGER.debug(&quot;hosts == null || hosts.size() == 0&quot;);</span>
+<span class="nc" id="L74">            return null;</span>
+        }
+
+<span class="nc" id="L77">        Chooser&lt;String, Instance&gt; vipChooser = new Chooser&lt;String, Instance&gt;(&quot;www.taobao.com&quot;);</span>
+
+<span class="nc" id="L79">        NAMING_LOGGER.debug(&quot;new Chooser&quot;);</span>
+
+<span class="nc" id="L81">        List&lt;Pair&lt;Instance&gt;&gt; hostsWithWeight = new ArrayList&lt;Pair&lt;Instance&gt;&gt;();</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        for (Instance host : hosts) {</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">            if (host.isHealthy()) {</span>
+<span class="nc" id="L84">                hostsWithWeight.add(new Pair&lt;Instance&gt;(host, host.getWeight()));</span>
+            }
+<span class="nc" id="L86">        }</span>
+<span class="nc" id="L87">        NAMING_LOGGER.debug(&quot;for (Host host : hosts)&quot;);</span>
+<span class="nc" id="L88">        vipChooser.refresh(hostsWithWeight);</span>
+<span class="nc" id="L89">        NAMING_LOGGER.debug(&quot;vipChooser.refresh&quot;);</span>
+<span class="nc" id="L90">        return vipChooser.randomWithWeight();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

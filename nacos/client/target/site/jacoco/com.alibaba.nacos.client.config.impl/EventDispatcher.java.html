@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EventDispatcher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.config.impl</a> &gt; <span class="el_source">EventDispatcher.java</span></div><h1>EventDispatcher.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.config.impl;
+
+import com.alibaba.nacos.client.utils.LogUtils;
+import org.slf4j.Logger;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+/**
+ * Event subscription and publishing tools.
+ *
+ * @author Nacos
+ */
+<span class="nc" id="L32">public class EventDispatcher {</span>
+
+<span class="nc" id="L34">    private static final Logger LOGGER = LogUtils.logger(EventDispatcher.class);</span>
+
+    /**
+     * 添加事件监听器
+     */
+    static public void addEventListener(AbstractEventListener listener) {
+<span class="nc bnc" id="L40" title="All 2 branches missed.">        for (Class&lt;? extends AbstractEvent&gt; type : listener.interest()) {</span>
+<span class="nc" id="L41">            getListenerList(type).addIfAbsent(listener);</span>
+<span class="nc" id="L42">        }</span>
+<span class="nc" id="L43">    }</span>
+
+    /**
+     * 发布事件，首先发布该事件暗示的其他事件，最后通知所有对应的监听器。
+     */
+    static public void fireEvent(AbstractEvent abstractEvent) {
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        if (null == abstractEvent) {</span>
+<span class="nc" id="L50">            return;</span>
+        }
+
+        // 发布该事件暗示的其他事件
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        for (AbstractEvent implyEvent : abstractEvent.implyEvents()) {</span>
+            try {
+                // 避免死循环
+<span class="nc bnc" id="L57" title="All 2 branches missed.">                if (abstractEvent != implyEvent) {</span>
+<span class="nc" id="L58">                    fireEvent(implyEvent);</span>
+                }
+<span class="nc" id="L60">            } catch (Exception e) {</span>
+<span class="nc" id="L61">                LOGGER.warn(e.toString(), e);</span>
+<span class="nc" id="L62">            }</span>
+<span class="nc" id="L63">        }</span>
+
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        for (AbstractEventListener listener : getListenerList(abstractEvent.getClass())) {</span>
+            try {
+<span class="nc" id="L67">                listener.onEvent(abstractEvent);</span>
+<span class="nc" id="L68">            } catch (Exception e) {</span>
+<span class="nc" id="L69">                LOGGER.warn(e.toString(), e);</span>
+<span class="nc" id="L70">            }</span>
+<span class="nc" id="L71">        }</span>
+<span class="nc" id="L72">    }</span>
+
+    static synchronized CopyOnWriteArrayList&lt;AbstractEventListener&gt; getListenerList(
+        Class&lt;? extends AbstractEvent&gt; eventType) {
+<span class="nc" id="L76">        CopyOnWriteArrayList&lt;AbstractEventListener&gt; listeners = LISTENER_MAP.get(eventType);</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (null == listeners) {</span>
+<span class="nc" id="L78">            listeners = new CopyOnWriteArrayList&lt;AbstractEventListener&gt;();</span>
+<span class="nc" id="L79">            LISTENER_MAP.put(eventType, listeners);</span>
+        }
+<span class="nc" id="L81">        return listeners;</span>
+    }
+
+    // ========================
+
+<span class="nc" id="L86">    static final Map&lt;Class&lt;? extends AbstractEvent&gt;, CopyOnWriteArrayList&lt;AbstractEventListener&gt;&gt; LISTENER_MAP</span>
+        = new HashMap&lt;Class&lt;? extends AbstractEvent&gt;, CopyOnWriteArrayList&lt;AbstractEventListener&gt;&gt;();
+
+    // ========================
+
+    /**
+     * Client事件。
+     */
+<span class="nc" id="L94">    static public abstract class AbstractEvent {</span>
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        protected List&lt;AbstractEvent&gt; implyEvents() {
+<span class="nc" id="L98">            return Collections.EMPTY_LIST;</span>
+        }
+    }
+
+    /**
+     * 事件监听器。
+     */
+    static public abstract class AbstractEventListener {
+<span class="nc" id="L106">        public AbstractEventListener() {</span>
+            /**
+             * 自动注册给EventDispatcher
+             */
+<span class="nc" id="L110">            EventDispatcher.addEventListener(this);</span>
+<span class="nc" id="L111">        }</span>
+
+        /**
+         * 感兴趣的事件列表
+         *
+         * @return event list
+         */
+        abstract public List&lt;Class&lt;? extends AbstractEvent&gt;&gt; interest();
+
+        /**
+         * 处理事件
+         *
+         * @param abstractEvent event to do
+         */
+        abstract public void onEvent(AbstractEvent abstractEvent);
+    }
+
+    /**
+     * serverList has changed
+     */
+<span class="nc" id="L131">    static public class ServerlistChangeEvent extends AbstractEvent {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

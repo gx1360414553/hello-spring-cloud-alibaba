@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HostReactor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.core</a> &gt; <span class="el_source">HostReactor.java</span></div><h1>HostReactor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.core;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
+import com.alibaba.nacos.client.monitor.MetricsMonitor;
+import com.alibaba.nacos.client.naming.backups.FailoverReactor;
+import com.alibaba.nacos.client.naming.cache.DiskCache;
+import com.alibaba.nacos.client.naming.net.NamingProxy;
+import com.alibaba.nacos.client.naming.utils.UtilAndComs;
+import com.alibaba.nacos.client.utils.StringUtils;
+
+import java.util.*;
+import java.util.concurrent.*;
+
+import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
+
+/**
+ * @author xuanyin
+ */
+public class HostReactor {
+
+    private static final long DEFAULT_DELAY = 1000L;
+
+    private static final long UPDATE_HOLD_INTERVAL = 5000L;
+
+<span class="nc" id="L43">    private final Map&lt;String, ScheduledFuture&lt;?&gt;&gt; futureMap = new HashMap&lt;String, ScheduledFuture&lt;?&gt;&gt;();</span>
+
+    private Map&lt;String, ServiceInfo&gt; serviceInfoMap;
+
+    private Map&lt;String, Object&gt; updatingMap;
+
+    private PushReceiver pushReceiver;
+
+    private EventDispatcher eventDispatcher;
+
+    private NamingProxy serverProxy;
+
+    private FailoverReactor failoverReactor;
+
+    private String cacheDir;
+
+    private ScheduledExecutorService executor;
+
+    public HostReactor(EventDispatcher eventDispatcher, NamingProxy serverProxy, String cacheDir) {
+<span class="nc" id="L62">        this(eventDispatcher, serverProxy, cacheDir, false, UtilAndComs.DEFAULT_POLLING_THREAD_COUNT);</span>
+<span class="nc" id="L63">    }</span>
+
+    public HostReactor(EventDispatcher eventDispatcher, NamingProxy serverProxy, String cacheDir,
+<span class="nc" id="L66">                       boolean loadCacheAtStart, int pollingThreadCount) {</span>
+
+<span class="nc" id="L68">        executor = new ScheduledThreadPoolExecutor(pollingThreadCount, new ThreadFactory() {</span>
+            @Override
+            public Thread newThread(Runnable r) {
+<span class="nc" id="L71">                Thread thread = new Thread(r);</span>
+<span class="nc" id="L72">                thread.setDaemon(true);</span>
+<span class="nc" id="L73">                thread.setName(&quot;com.alibaba.nacos.client.naming.updater&quot;);</span>
+<span class="nc" id="L74">                return thread;</span>
+            }
+        });
+
+<span class="nc" id="L78">        this.eventDispatcher = eventDispatcher;</span>
+<span class="nc" id="L79">        this.serverProxy = serverProxy;</span>
+<span class="nc" id="L80">        this.cacheDir = cacheDir;</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (loadCacheAtStart) {</span>
+<span class="nc" id="L82">            this.serviceInfoMap = new ConcurrentHashMap&lt;String, ServiceInfo&gt;(DiskCache.read(this.cacheDir));</span>
+        } else {
+<span class="nc" id="L84">            this.serviceInfoMap = new ConcurrentHashMap&lt;String, ServiceInfo&gt;(16);</span>
+        }
+
+<span class="nc" id="L87">        this.updatingMap = new ConcurrentHashMap&lt;String, Object&gt;();</span>
+<span class="nc" id="L88">        this.failoverReactor = new FailoverReactor(this, cacheDir);</span>
+<span class="nc" id="L89">        this.pushReceiver = new PushReceiver(this);</span>
+<span class="nc" id="L90">    }</span>
+
+    public Map&lt;String, ServiceInfo&gt; getServiceInfoMap() {
+<span class="nc" id="L93">        return serviceInfoMap;</span>
+    }
+
+    public synchronized ScheduledFuture&lt;?&gt; addTask(UpdateTask task) {
+<span class="nc" id="L97">        return executor.schedule(task, DEFAULT_DELAY, TimeUnit.MILLISECONDS);</span>
+    }
+
+    public ServiceInfo processServiceJSON(String json) {
+<span class="nc" id="L101">        ServiceInfo serviceInfo = JSON.parseObject(json, ServiceInfo.class);</span>
+<span class="nc" id="L102">        ServiceInfo oldService = serviceInfoMap.get(serviceInfo.getKey());</span>
+<span class="nc bnc" id="L103" title="All 4 branches missed.">        if (serviceInfo.getHosts() == null || !serviceInfo.validate()) {</span>
+            //empty or error push, just ignore
+<span class="nc" id="L105">            return oldService;</span>
+        }
+
+<span class="nc" id="L108">        boolean changed = false;</span>
+
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (oldService != null) {</span>
+
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            if (oldService.getLastRefTime() &gt; serviceInfo.getLastRefTime()) {</span>
+<span class="nc" id="L113">                NAMING_LOGGER.warn(&quot;out of date data received, old-t: &quot; + oldService.getLastRefTime()</span>
+<span class="nc" id="L114">                    + &quot;, new-t: &quot; + serviceInfo.getLastRefTime());</span>
+            }
+
+<span class="nc" id="L117">            serviceInfoMap.put(serviceInfo.getKey(), serviceInfo);</span>
+
+<span class="nc" id="L119">            Map&lt;String, Instance&gt; oldHostMap = new HashMap&lt;String, Instance&gt;(oldService.getHosts().size());</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            for (Instance host : oldService.getHosts()) {</span>
+<span class="nc" id="L121">                oldHostMap.put(host.toInetAddr(), host);</span>
+<span class="nc" id="L122">            }</span>
+
+<span class="nc" id="L124">            Map&lt;String, Instance&gt; newHostMap = new HashMap&lt;String, Instance&gt;(serviceInfo.getHosts().size());</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">            for (Instance host : serviceInfo.getHosts()) {</span>
+<span class="nc" id="L126">                newHostMap.put(host.toInetAddr(), host);</span>
+<span class="nc" id="L127">            }</span>
+
+<span class="nc" id="L129">            Set&lt;Instance&gt; modHosts = new HashSet&lt;Instance&gt;();</span>
+<span class="nc" id="L130">            Set&lt;Instance&gt; newHosts = new HashSet&lt;Instance&gt;();</span>
+<span class="nc" id="L131">            Set&lt;Instance&gt; remvHosts = new HashSet&lt;Instance&gt;();</span>
+
+<span class="nc" id="L133">            List&lt;Map.Entry&lt;String, Instance&gt;&gt; newServiceHosts = new ArrayList&lt;Map.Entry&lt;String, Instance&gt;&gt;(</span>
+<span class="nc" id="L134">                newHostMap.entrySet());</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">            for (Map.Entry&lt;String, Instance&gt; entry : newServiceHosts) {</span>
+<span class="nc" id="L136">                Instance host = entry.getValue();</span>
+<span class="nc" id="L137">                String key = entry.getKey();</span>
+<span class="nc bnc" id="L138" title="All 4 branches missed.">                if (oldHostMap.containsKey(key) &amp;&amp; !StringUtils.equals(host.toString(),</span>
+<span class="nc" id="L139">                    oldHostMap.get(key).toString())) {</span>
+<span class="nc" id="L140">                    modHosts.add(host);</span>
+<span class="nc" id="L141">                    continue;</span>
+                }
+
+<span class="nc bnc" id="L144" title="All 2 branches missed.">                if (!oldHostMap.containsKey(key)) {</span>
+<span class="nc" id="L145">                    newHosts.add(host);</span>
+                }
+<span class="nc" id="L147">            }</span>
+
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            for (Map.Entry&lt;String, Instance&gt; entry : oldHostMap.entrySet()) {</span>
+<span class="nc" id="L150">                Instance host = entry.getValue();</span>
+<span class="nc" id="L151">                String key = entry.getKey();</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">                if (newHostMap.containsKey(key)) {</span>
+<span class="nc" id="L153">                    continue;</span>
+                }
+
+<span class="nc bnc" id="L156" title="All 2 branches missed.">                if (!newHostMap.containsKey(key)) {</span>
+<span class="nc" id="L157">                    remvHosts.add(host);</span>
+                }
+
+<span class="nc" id="L160">            }</span>
+
+<span class="nc bnc" id="L162" title="All 2 branches missed.">            if (newHosts.size() &gt; 0) {</span>
+<span class="nc" id="L163">                changed = true;</span>
+<span class="nc" id="L164">                NAMING_LOGGER.info(&quot;new ips(&quot; + newHosts.size() + &quot;) service: &quot;</span>
+<span class="nc" id="L165">                    + serviceInfo.getKey() + &quot; -&gt; &quot; + JSON.toJSONString(newHosts));</span>
+            }
+
+<span class="nc bnc" id="L168" title="All 2 branches missed.">            if (remvHosts.size() &gt; 0) {</span>
+<span class="nc" id="L169">                changed = true;</span>
+<span class="nc" id="L170">                NAMING_LOGGER.info(&quot;removed ips(&quot; + remvHosts.size() + &quot;) service: &quot;</span>
+<span class="nc" id="L171">                    + serviceInfo.getKey() + &quot; -&gt; &quot; + JSON.toJSONString(remvHosts));</span>
+            }
+
+<span class="nc bnc" id="L174" title="All 2 branches missed.">            if (modHosts.size() &gt; 0) {</span>
+<span class="nc" id="L175">                changed = true;</span>
+<span class="nc" id="L176">                NAMING_LOGGER.info(&quot;modified ips(&quot; + modHosts.size() + &quot;) service: &quot;</span>
+<span class="nc" id="L177">                    + serviceInfo.getKey() + &quot; -&gt; &quot; + JSON.toJSONString(modHosts));</span>
+            }
+
+<span class="nc" id="L180">            serviceInfo.setJsonFromServer(json);</span>
+
+<span class="nc bnc" id="L182" title="All 6 branches missed.">            if (newHosts.size() &gt; 0 || remvHosts.size() &gt; 0 || modHosts.size() &gt; 0) {</span>
+<span class="nc" id="L183">                eventDispatcher.serviceChanged(serviceInfo);</span>
+<span class="nc" id="L184">                DiskCache.write(serviceInfo, cacheDir);</span>
+            }
+
+<span class="nc" id="L187">        } else {</span>
+<span class="nc" id="L188">            changed = true;</span>
+<span class="nc" id="L189">            NAMING_LOGGER.info(&quot;init new ips(&quot; + serviceInfo.ipCount() + &quot;) service: &quot; + serviceInfo.getKey() + &quot; -&gt; &quot; + JSON</span>
+<span class="nc" id="L190">                .toJSONString(serviceInfo.getHosts()));</span>
+<span class="nc" id="L191">            serviceInfoMap.put(serviceInfo.getKey(), serviceInfo);</span>
+<span class="nc" id="L192">            eventDispatcher.serviceChanged(serviceInfo);</span>
+<span class="nc" id="L193">            serviceInfo.setJsonFromServer(json);</span>
+<span class="nc" id="L194">            DiskCache.write(serviceInfo, cacheDir);</span>
+        }
+
+<span class="nc" id="L197">        MetricsMonitor.getServiceInfoMapSizeMonitor().set(serviceInfoMap.size());</span>
+
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        if (changed) {</span>
+<span class="nc" id="L200">            NAMING_LOGGER.info(&quot;current ips:(&quot; + serviceInfo.ipCount() + &quot;) service: &quot; + serviceInfo.getKey() +</span>
+<span class="nc" id="L201">                &quot; -&gt; &quot; + JSON.toJSONString(serviceInfo.getHosts()));</span>
+        }
+
+<span class="nc" id="L204">        return serviceInfo;</span>
+    }
+
+    private ServiceInfo getServiceInfo0(String serviceName, String clusters) {
+
+<span class="nc" id="L209">        String key = ServiceInfo.getKey(serviceName, clusters);</span>
+
+<span class="nc" id="L211">        return serviceInfoMap.get(key);</span>
+    }
+
+    public ServiceInfo getServiceInfoDirectlyFromServer(final String serviceName, final String clusters) throws NacosException {
+<span class="nc" id="L215">        String result = serverProxy.queryList(serviceName, clusters, 0, false);</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(result)) {</span>
+<span class="nc" id="L217">            return JSON.parseObject(result, ServiceInfo.class);</span>
+        }
+<span class="nc" id="L219">        return null;</span>
+    }
+
+    public ServiceInfo getServiceInfo(final String serviceName, final String clusters) {
+
+<span class="nc" id="L224">        NAMING_LOGGER.debug(&quot;failover-mode: &quot; + failoverReactor.isFailoverSwitch());</span>
+<span class="nc" id="L225">        String key = ServiceInfo.getKey(serviceName, clusters);</span>
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (failoverReactor.isFailoverSwitch()) {</span>
+<span class="nc" id="L227">            return failoverReactor.getService(key);</span>
+        }
+
+<span class="nc" id="L230">        ServiceInfo serviceObj = getServiceInfo0(serviceName, clusters);</span>
+
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        if (null == serviceObj) {</span>
+<span class="nc" id="L233">            serviceObj = new ServiceInfo(serviceName, clusters);</span>
+
+<span class="nc" id="L235">            serviceInfoMap.put(serviceObj.getKey(), serviceObj);</span>
+
+<span class="nc" id="L237">            updatingMap.put(serviceName, new Object());</span>
+<span class="nc" id="L238">            updateServiceNow(serviceName, clusters);</span>
+<span class="nc" id="L239">            updatingMap.remove(serviceName);</span>
+
+<span class="nc bnc" id="L241" title="All 2 branches missed.">        } else if (updatingMap.containsKey(serviceName)) {</span>
+
+            if (UPDATE_HOLD_INTERVAL &gt; 0) {
+                // hold a moment waiting for update finish
+<span class="nc" id="L245">                synchronized (serviceObj) {</span>
+                    try {
+<span class="nc" id="L247">                        serviceObj.wait(UPDATE_HOLD_INTERVAL);</span>
+<span class="nc" id="L248">                    } catch (InterruptedException e) {</span>
+<span class="nc" id="L249">                        NAMING_LOGGER.error(&quot;[getServiceInfo] serviceName:&quot; + serviceName + &quot;, clusters:&quot; + clusters, e);</span>
+<span class="nc" id="L250">                    }</span>
+<span class="nc" id="L251">                }</span>
+            }
+        }
+
+<span class="nc" id="L255">        scheduleUpdateIfAbsent(serviceName, clusters);</span>
+
+<span class="nc" id="L257">        return serviceInfoMap.get(serviceObj.getKey());</span>
+    }
+
+    public void scheduleUpdateIfAbsent(String serviceName, String clusters) {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">        if (futureMap.get(ServiceInfo.getKey(serviceName, clusters)) != null) {</span>
+<span class="nc" id="L262">            return;</span>
+        }
+
+<span class="nc" id="L265">        synchronized (futureMap) {</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">            if (futureMap.get(ServiceInfo.getKey(serviceName, clusters)) != null) {</span>
+<span class="nc" id="L267">                return;</span>
+            }
+
+<span class="nc" id="L270">            ScheduledFuture&lt;?&gt; future = addTask(new UpdateTask(serviceName, clusters));</span>
+<span class="nc" id="L271">            futureMap.put(ServiceInfo.getKey(serviceName, clusters), future);</span>
+<span class="nc" id="L272">        }</span>
+<span class="nc" id="L273">    }</span>
+
+    public void updateServiceNow(String serviceName, String clusters) {
+<span class="nc" id="L276">        ServiceInfo oldService = getServiceInfo0(serviceName, clusters);</span>
+        try {
+
+<span class="nc" id="L279">            String result = serverProxy.queryList(serviceName, clusters, pushReceiver.getUDPPort(), false);</span>
+
+<span class="nc bnc" id="L281" title="All 2 branches missed.">            if (StringUtils.isNotEmpty(result)) {</span>
+<span class="nc" id="L282">                processServiceJSON(result);</span>
+            }
+<span class="nc" id="L284">        } catch (Exception e) {</span>
+<span class="nc" id="L285">            NAMING_LOGGER.error(&quot;[NA] failed to update serviceName: &quot; + serviceName, e);</span>
+        } finally {
+<span class="nc bnc" id="L287" title="All 6 branches missed.">            if (oldService != null) {</span>
+<span class="nc" id="L288">                synchronized (oldService) {</span>
+<span class="nc" id="L289">                    oldService.notifyAll();</span>
+<span class="nc" id="L290">                }</span>
+            }
+<span class="nc" id="L292">        }</span>
+<span class="nc" id="L293">    }</span>
+
+    public void refreshOnly(String serviceName, String clusters) {
+        try {
+<span class="nc" id="L297">            serverProxy.queryList(serviceName, clusters, pushReceiver.getUDPPort(), false);</span>
+<span class="nc" id="L298">        } catch (Exception e) {</span>
+<span class="nc" id="L299">            NAMING_LOGGER.error(&quot;[NA] failed to update serviceName: &quot; + serviceName, e);</span>
+<span class="nc" id="L300">        }</span>
+<span class="nc" id="L301">    }</span>
+
+    public class UpdateTask implements Runnable {
+<span class="nc" id="L304">        long lastRefTime = Long.MAX_VALUE;</span>
+        private String clusters;
+        private String serviceName;
+
+<span class="nc" id="L308">        public UpdateTask(String serviceName, String clusters) {</span>
+<span class="nc" id="L309">            this.serviceName = serviceName;</span>
+<span class="nc" id="L310">            this.clusters = clusters;</span>
+<span class="nc" id="L311">        }</span>
+
+        @Override
+        public void run() {
+            try {
+<span class="nc" id="L316">                ServiceInfo serviceObj = serviceInfoMap.get(ServiceInfo.getKey(serviceName, clusters));</span>
+
+<span class="nc bnc" id="L318" title="All 2 branches missed.">                if (serviceObj == null) {</span>
+<span class="nc" id="L319">                    updateServiceNow(serviceName, clusters);</span>
+<span class="nc" id="L320">                    executor.schedule(this, DEFAULT_DELAY, TimeUnit.MILLISECONDS);</span>
+<span class="nc" id="L321">                    return;</span>
+                }
+
+<span class="nc bnc" id="L324" title="All 2 branches missed.">                if (serviceObj.getLastRefTime() &lt;= lastRefTime) {</span>
+<span class="nc" id="L325">                    updateServiceNow(serviceName, clusters);</span>
+<span class="nc" id="L326">                    serviceObj = serviceInfoMap.get(ServiceInfo.getKey(serviceName, clusters));</span>
+                } else {
+                    // if serviceName already updated by push, we should not override it
+                    // since the push data may be different from pull through force push
+<span class="nc" id="L330">                    refreshOnly(serviceName, clusters);</span>
+                }
+
+<span class="nc" id="L333">                executor.schedule(this, serviceObj.getCacheMillis(), TimeUnit.MILLISECONDS);</span>
+
+<span class="nc" id="L335">                lastRefTime = serviceObj.getLastRefTime();</span>
+<span class="nc" id="L336">            } catch (Throwable e) {</span>
+<span class="nc" id="L337">                NAMING_LOGGER.warn(&quot;[NA] failed to update serviceName: &quot; + serviceName, e);</span>
+<span class="nc" id="L338">            }</span>
+
+<span class="nc" id="L340">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

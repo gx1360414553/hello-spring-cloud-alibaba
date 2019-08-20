@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FailoverReactor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming.backups</a> &gt; <span class="el_source">FailoverReactor.java</span></div><h1>FailoverReactor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming.backups;
+
+import com.alibaba.fastjson.JSON;
+import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
+import com.alibaba.nacos.client.naming.cache.ConcurrentDiskUtil;
+import com.alibaba.nacos.client.naming.cache.DiskCache;
+import com.alibaba.nacos.client.naming.core.HostReactor;
+import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacos.client.naming.utils.UtilAndComs;
+import com.alibaba.nacos.client.utils.StringUtils;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.StringReader;
+import java.nio.charset.Charset;
+import java.util.*;
+import java.util.concurrent.*;
+
+import static com.alibaba.nacos.client.utils.LogUtils.NAMING_LOGGER;
+
+/**
+ * @author nkorange
+ */
+public class FailoverReactor {
+
+    private String failoverDir;
+
+    private HostReactor hostReactor;
+
+<span class="nc" id="L45">    public FailoverReactor(HostReactor hostReactor, String cacheDir) {</span>
+<span class="nc" id="L46">        this.hostReactor = hostReactor;</span>
+<span class="nc" id="L47">        this.failoverDir = cacheDir + &quot;/failover&quot;;</span>
+<span class="nc" id="L48">        this.init();</span>
+<span class="nc" id="L49">    }</span>
+
+<span class="nc" id="L51">    private Map&lt;String, ServiceInfo&gt; serviceMap = new ConcurrentHashMap&lt;String, ServiceInfo&gt;();</span>
+<span class="nc" id="L52">    private ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {</span>
+        @Override
+        public Thread newThread(Runnable r) {
+<span class="nc" id="L55">            Thread thread = new Thread(r);</span>
+<span class="nc" id="L56">            thread.setDaemon(true);</span>
+<span class="nc" id="L57">            thread.setName(&quot;com.alibaba.nacos.naming.failover&quot;);</span>
+<span class="nc" id="L58">            return thread;</span>
+        }
+    });
+
+<span class="nc" id="L62">    private Map&lt;String, String&gt; switchParams = new ConcurrentHashMap&lt;String, String&gt;();</span>
+    private static final long DAY_PERIOD_MINUTES = 24 * 60;
+
+    public void init() {
+
+<span class="nc" id="L67">        executorService.scheduleWithFixedDelay(new SwitchRefresher(), 0L, 5000L, TimeUnit.MILLISECONDS);</span>
+
+<span class="nc" id="L69">        executorService.scheduleWithFixedDelay(new DiskFileWriter(), 30, DAY_PERIOD_MINUTES, TimeUnit.MINUTES);</span>
+
+        // backup file on startup if failover directory is empty.
+<span class="nc" id="L72">        executorService.schedule(new Runnable() {</span>
+            @Override
+            public void run() {
+                try {
+<span class="nc" id="L76">                    File cacheDir = new File(failoverDir);</span>
+
+<span class="nc bnc" id="L78" title="All 4 branches missed.">                    if (!cacheDir.exists() &amp;&amp; !cacheDir.mkdirs()) {</span>
+<span class="nc" id="L79">                        throw new IllegalStateException(&quot;failed to create cache dir: &quot; + failoverDir);</span>
+                    }
+
+<span class="nc" id="L82">                    File[] files = cacheDir.listFiles();</span>
+<span class="nc bnc" id="L83" title="All 4 branches missed.">                    if (files == null || files.length &lt;= 0) {</span>
+<span class="nc" id="L84">                        new DiskFileWriter().run();</span>
+                    }
+<span class="nc" id="L86">                } catch (Throwable e) {</span>
+<span class="nc" id="L87">                    NAMING_LOGGER.error(&quot;[NA] failed to backup file on startup.&quot;, e);</span>
+<span class="nc" id="L88">                }</span>
+
+<span class="nc" id="L90">            }</span>
+        }, 10000L, TimeUnit.MILLISECONDS);
+<span class="nc" id="L92">    }</span>
+
+    public Date addDay(Date date, int num) {
+<span class="nc" id="L95">        Calendar startDT = Calendar.getInstance();</span>
+<span class="nc" id="L96">        startDT.setTime(date);</span>
+<span class="nc" id="L97">        startDT.add(Calendar.DAY_OF_MONTH, num);</span>
+<span class="nc" id="L98">        return startDT.getTime();</span>
+    }
+
+<span class="nc" id="L101">    class SwitchRefresher implements Runnable {</span>
+<span class="nc" id="L102">        long lastModifiedMillis = 0L;</span>
+
+        @Override
+        public void run() {
+            try {
+<span class="nc" id="L107">                File switchFile = new File(failoverDir + UtilAndComs.FAILOVER_SWITCH);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">                if (!switchFile.exists()) {</span>
+<span class="nc" id="L109">                    switchParams.put(&quot;failover-mode&quot;, &quot;false&quot;);</span>
+<span class="nc" id="L110">                    NAMING_LOGGER.debug(&quot;failover switch is not found, &quot; + switchFile.getName());</span>
+<span class="nc" id="L111">                    return;</span>
+                }
+
+<span class="nc" id="L114">                long modified = switchFile.lastModified();</span>
+
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                if (lastModifiedMillis &lt; modified) {</span>
+<span class="nc" id="L117">                    lastModifiedMillis = modified;</span>
+<span class="nc" id="L118">                    String failover = ConcurrentDiskUtil.getFileContent(failoverDir + UtilAndComs.FAILOVER_SWITCH,</span>
+<span class="nc" id="L119">                        Charset.defaultCharset().toString());</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">                    if (!StringUtils.isEmpty(failover)) {</span>
+<span class="nc" id="L121">                        List&lt;String&gt; lines = Arrays.asList(failover.split(DiskCache.getLineSeparator()));</span>
+
+<span class="nc bnc" id="L123" title="All 2 branches missed.">                        for (String line : lines) {</span>
+<span class="nc" id="L124">                            String line1 = line.trim();</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">                            if (&quot;1&quot;.equals(line1)) {</span>
+<span class="nc" id="L126">                                switchParams.put(&quot;failover-mode&quot;, &quot;true&quot;);</span>
+<span class="nc" id="L127">                                NAMING_LOGGER.info(&quot;failover-mode is on&quot;);</span>
+<span class="nc" id="L128">                                new FailoverFileReader().run();</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">                            } else if (&quot;0&quot;.equals(line1)) {</span>
+<span class="nc" id="L130">                                switchParams.put(&quot;failover-mode&quot;, &quot;false&quot;);</span>
+<span class="nc" id="L131">                                NAMING_LOGGER.info(&quot;failover-mode is off&quot;);</span>
+                            }
+<span class="nc" id="L133">                        }</span>
+<span class="nc" id="L134">                    } else {</span>
+<span class="nc" id="L135">                        switchParams.put(&quot;failover-mode&quot;, &quot;false&quot;);</span>
+                    }
+                }
+
+<span class="nc" id="L139">            } catch (Throwable e) {</span>
+<span class="nc" id="L140">                NAMING_LOGGER.error(&quot;[NA] failed to read failover switch.&quot;, e);</span>
+<span class="nc" id="L141">            }</span>
+<span class="nc" id="L142">        }</span>
+    }
+
+<span class="nc" id="L145">    class FailoverFileReader implements Runnable {</span>
+
+        @Override
+        public void run() {
+<span class="nc" id="L149">            Map&lt;String, ServiceInfo&gt; domMap = new HashMap&lt;String, ServiceInfo&gt;(16);</span>
+
+<span class="nc" id="L151">            BufferedReader reader = null;</span>
+            try {
+
+<span class="nc" id="L154">                File cacheDir = new File(failoverDir);</span>
+<span class="nc bnc" id="L155" title="All 4 branches missed.">                if (!cacheDir.exists() &amp;&amp; !cacheDir.mkdirs()) {</span>
+<span class="nc" id="L156">                    throw new IllegalStateException(&quot;failed to create cache dir: &quot; + failoverDir);</span>
+                }
+
+<span class="nc" id="L159">                File[] files = cacheDir.listFiles();</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">                if (files == null) {</span>
+<span class="nc" id="L161">                    return;</span>
+                }
+
+<span class="nc bnc" id="L164" title="All 2 branches missed.">                for (File file : files) {</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">                    if (!file.isFile()) {</span>
+<span class="nc" id="L166">                        continue;</span>
+                    }
+
+<span class="nc bnc" id="L169" title="All 2 branches missed.">                    if (file.getName().equals(UtilAndComs.FAILOVER_SWITCH)) {</span>
+<span class="nc" id="L170">                        continue;</span>
+                    }
+
+<span class="nc" id="L173">                    ServiceInfo dom = new ServiceInfo(file.getName());</span>
+
+                    try {
+<span class="nc" id="L176">                        String dataString = ConcurrentDiskUtil.getFileContent(file,</span>
+<span class="nc" id="L177">                            Charset.defaultCharset().toString());</span>
+<span class="nc" id="L178">                        reader = new BufferedReader(new StringReader(dataString));</span>
+
+                        String json;
+<span class="nc bnc" id="L181" title="All 2 branches missed.">                        if ((json = reader.readLine()) != null) {</span>
+                            try {
+<span class="nc" id="L183">                                dom = JSON.parseObject(json, ServiceInfo.class);</span>
+<span class="nc" id="L184">                            } catch (Exception e) {</span>
+<span class="nc" id="L185">                                NAMING_LOGGER.error(&quot;[NA] error while parsing cached dom : &quot; + json, e);</span>
+<span class="nc" id="L186">                            }</span>
+                        }
+
+<span class="nc" id="L189">                    } catch (Exception e) {</span>
+<span class="nc" id="L190">                        NAMING_LOGGER.error(&quot;[NA] failed to read cache for dom: &quot; + file.getName(), e);</span>
+                    } finally {
+<span class="nc" id="L192">                        try {</span>
+<span class="nc bnc" id="L193" title="All 6 branches missed.">                            if (reader != null) {</span>
+<span class="nc" id="L194">                                reader.close();</span>
+                            }
+<span class="nc" id="L196">                        } catch (Exception e) {</span>
+                            //ignore
+<span class="nc" id="L198">                        }</span>
+<span class="nc" id="L199">                    }</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">                    if (!CollectionUtils.isEmpty(dom.getHosts())) {</span>
+<span class="nc" id="L201">                        domMap.put(dom.getKey(), dom);</span>
+                    }
+                }
+<span class="nc" id="L204">            } catch (Exception e) {</span>
+<span class="nc" id="L205">                NAMING_LOGGER.error(&quot;[NA] failed to read cache file&quot;, e);</span>
+<span class="nc" id="L206">            }</span>
+
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            if (domMap.size() &gt; 0) {</span>
+<span class="nc" id="L209">                serviceMap = domMap;</span>
+            }
+<span class="nc" id="L211">        }</span>
+    }
+
+<span class="nc" id="L214">    class DiskFileWriter extends TimerTask {</span>
+        @Override
+        public void run() {
+<span class="nc" id="L217">            Map&lt;String, ServiceInfo&gt; map = hostReactor.getServiceInfoMap();</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">            for (Map.Entry&lt;String, ServiceInfo&gt; entry : map.entrySet()) {</span>
+<span class="nc" id="L219">                ServiceInfo serviceInfo = entry.getValue();</span>
+<span class="nc bnc" id="L220" title="All 4 branches missed.">                if (StringUtils.equals(serviceInfo.getKey(), UtilAndComs.ALL_IPS) || StringUtils.equals(</span>
+<span class="nc" id="L221">                    serviceInfo.getName(), UtilAndComs.ENV_LIST_KEY)</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">                    || StringUtils.equals(serviceInfo.getName(), &quot;00-00---000-ENV_CONFIGS-000---00-00&quot;)</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">                    || StringUtils.equals(serviceInfo.getName(), &quot;vipclient.properties&quot;)</span>
+<span class="nc bnc" id="L224" title="All 2 branches missed.">                    || StringUtils.equals(serviceInfo.getName(), &quot;00-00---000-ALL_HOSTS-000---00-00&quot;)) {</span>
+<span class="nc" id="L225">                    continue;</span>
+                }
+
+<span class="nc" id="L228">                DiskCache.write(serviceInfo, failoverDir);</span>
+<span class="nc" id="L229">            }</span>
+<span class="nc" id="L230">        }</span>
+    }
+
+    public boolean isFailoverSwitch() {
+<span class="nc" id="L234">        return Boolean.parseBoolean(switchParams.get(&quot;failover-mode&quot;));</span>
+    }
+
+    public ServiceInfo getService(String key) {
+<span class="nc" id="L238">        ServiceInfo serviceInfo = serviceMap.get(key);</span>
+
+<span class="nc bnc" id="L240" title="All 2 branches missed.">        if (serviceInfo == null) {</span>
+<span class="nc" id="L241">            serviceInfo = new ServiceInfo();</span>
+<span class="nc" id="L242">            serviceInfo.setName(key);</span>
+        }
+
+<span class="nc" id="L245">        return serviceInfo;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

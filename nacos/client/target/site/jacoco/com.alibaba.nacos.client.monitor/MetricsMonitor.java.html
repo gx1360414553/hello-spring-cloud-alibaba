@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetricsMonitor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.monitor</a> &gt; <span class="el_source">MetricsMonitor.java</span></div><h1>MetricsMonitor.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.monitor;
+
+import io.prometheus.client.Gauge;
+import io.prometheus.client.Histogram;
+
+/**
+ * Metrics Monitor
+ *
+ * @author Nacos
+ */
+<span class="nc" id="L26">public class MetricsMonitor {</span>
+<span class="fc" id="L27">    private static Gauge nacosMonitor = Gauge.build()</span>
+<span class="fc" id="L28">        .name(&quot;nacos_monitor&quot;).labelNames(&quot;module&quot;, &quot;name&quot;)</span>
+<span class="fc" id="L29">        .help(&quot;nacos_monitor&quot;).register();</span>
+
+<span class="fc" id="L31">    private static Histogram nacosClientRequestHistogram = Histogram.build().labelNames(&quot;module&quot;, &quot;method&quot;, &quot;url&quot;, &quot;code&quot;)</span>
+<span class="fc" id="L32">        .name(&quot;nacos_client_request&quot;).help(&quot;nacos_client_request&quot;)</span>
+<span class="fc" id="L33">        .register();</span>
+
+
+    public static Gauge.Child getServiceInfoMapSizeMonitor() {
+<span class="nc" id="L37">        return nacosMonitor.labels(&quot;naming&quot;, &quot;serviceInfoMapSize&quot;);</span>
+    }
+
+    public static Gauge.Child getDom2BeatSizeMonitor() {
+<span class="fc" id="L41">        return nacosMonitor.labels(&quot;naming&quot;, &quot;dom2BeatSize&quot;);</span>
+    }
+
+    public static Gauge.Child getListenConfigCountMonitor() {
+<span class="nc" id="L45">        return nacosMonitor.labels(&quot;naming&quot;, &quot;listenConfigCount&quot;);</span>
+    }
+
+    public static Histogram.Timer getConfigRequestMonitor(String method, String url, String code) {
+<span class="nc" id="L49">        return nacosClientRequestHistogram.labels(&quot;config&quot;, method, url, code).startTimer();</span>
+    }
+
+    public static Histogram.Child getNamingRequestMonitor(String method, String url, String code) {
+<span class="nc" id="L53">        return nacosClientRequestHistogram.labels(&quot;naming&quot;, method, url, code);</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

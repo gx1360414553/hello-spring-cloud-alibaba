@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ServerHttpAgent.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.config.http</a> &gt; <span class="el_source">ServerHttpAgent.java</span></div><h1>ServerHttpAgent.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.config.http;
+
+import com.alibaba.nacos.api.PropertyKeyConst;
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.client.config.impl.HttpSimpleClient;
+import com.alibaba.nacos.client.config.impl.HttpSimpleClient.HttpResult;
+import com.alibaba.nacos.client.config.impl.ServerListManager;
+import com.alibaba.nacos.client.config.impl.SpasAdapter;
+import com.alibaba.nacos.client.config.utils.IOUtils;
+import com.alibaba.nacos.client.identify.STSConfig;
+import com.alibaba.nacos.client.utils.TemplateUtils;
+import com.alibaba.nacos.client.utils.JSONUtils;
+import com.alibaba.nacos.client.utils.LogUtils;
+import com.alibaba.nacos.client.utils.ParamUtil;
+import com.alibaba.nacos.client.utils.StringUtils;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.slf4j.Logger;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.Callable;
+
+/**
+ * Server Agent
+ *
+ * @author water.lyl
+ */
+public class ServerHttpAgent implements HttpAgent {
+
+<span class="nc" id="L54">    private static final Logger LOGGER = LogUtils.logger(ServerHttpAgent.class);</span>
+
+    /**
+     * @param path          相对于web应用根，以/开头
+     * @param headers
+     * @param paramValues
+     * @param encoding
+     * @param readTimeoutMs
+     * @return
+     * @throws IOException
+     */
+    @Override
+    public HttpResult httpGet(String path, List&lt;String&gt; headers, List&lt;String&gt; paramValues, String encoding,
+                              long readTimeoutMs) throws IOException {
+<span class="nc" id="L68">        final long endTime = System.currentTimeMillis() + readTimeoutMs;</span>
+<span class="nc" id="L69">        final boolean isSSL = false;</span>
+
+<span class="nc" id="L71">        String currentServerAddr = serverListMgr.getCurrentServerAddr();</span>
+<span class="nc" id="L72">        int maxRetry = this.maxRetry;</span>
+
+        do {
+            try {
+<span class="nc" id="L76">                List&lt;String&gt; newHeaders = getSpasHeaders(paramValues);</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">                if (headers != null) {</span>
+<span class="nc" id="L78">                    newHeaders.addAll(headers);</span>
+                }
+<span class="nc" id="L80">                HttpResult result = HttpSimpleClient.httpGet(</span>
+<span class="nc" id="L81">                    getUrl(currentServerAddr, path), newHeaders, paramValues, encoding,</span>
+                    readTimeoutMs, isSSL);
+<span class="nc bnc" id="L83" title="All 6 branches missed.">                if (result.code == HttpURLConnection.HTTP_INTERNAL_ERROR</span>
+                    || result.code == HttpURLConnection.HTTP_BAD_GATEWAY
+                    || result.code == HttpURLConnection.HTTP_UNAVAILABLE) {
+<span class="nc" id="L86">                    LOGGER.error(&quot;[NACOS ConnectException] currentServerAddr: {}, httpCode: {}&quot;,</span>
+<span class="nc" id="L87">                        serverListMgr.getCurrentServerAddr(), result.code);</span>
+                } else {
+                    // Update the currently available server addr
+<span class="nc" id="L90">                    serverListMgr.updateCurrentServerAddr(currentServerAddr);</span>
+<span class="nc" id="L91">                    return result;</span>
+                }
+<span class="nc" id="L93">            } catch (ConnectException ce) {</span>
+<span class="nc" id="L94">                LOGGER.error(&quot;[NACOS ConnectException httpGet] currentServerAddr:{}, err : {}&quot;, serverListMgr.getCurrentServerAddr(), ce.getMessage());</span>
+<span class="nc" id="L95">            } catch (SocketTimeoutException stoe) {</span>
+<span class="nc" id="L96">                LOGGER.error(&quot;[NACOS SocketTimeoutException httpGet] currentServerAddr:{}， err : {}&quot;, serverListMgr.getCurrentServerAddr(), stoe.getMessage());</span>
+<span class="nc" id="L97">            } catch (IOException ioe) {</span>
+<span class="nc" id="L98">                LOGGER.error(&quot;[NACOS IOException httpGet] currentServerAddr: &quot; + serverListMgr.getCurrentServerAddr(), ioe);</span>
+<span class="nc" id="L99">                throw ioe;</span>
+<span class="nc" id="L100">            }</span>
+
+<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (serverListMgr.getIterator().hasNext()) {</span>
+<span class="nc" id="L103">                currentServerAddr = serverListMgr.getIterator().next();</span>
+            } else {
+<span class="nc" id="L105">                maxRetry --;</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">                if (maxRetry &lt; 0) {</span>
+<span class="nc" id="L107">                    throw new ConnectException(&quot;[NACOS HTTP-GET] The maximum number of tolerable server reconnection errors has been reached&quot;);</span>
+                }
+<span class="nc" id="L109">                serverListMgr.refreshCurrentServerAddr();</span>
+            }
+
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        } while (System.currentTimeMillis() &lt;= endTime);</span>
+
+<span class="nc" id="L114">        LOGGER.error(&quot;no available server&quot;);</span>
+<span class="nc" id="L115">        throw new ConnectException(&quot;no available server&quot;);</span>
+    }
+
+    @Override
+    public HttpResult httpPost(String path, List&lt;String&gt; headers, List&lt;String&gt; paramValues, String encoding,
+                               long readTimeoutMs) throws IOException {
+<span class="nc" id="L121">        final long endTime = System.currentTimeMillis() + readTimeoutMs;</span>
+<span class="nc" id="L122">        boolean isSSL = false;</span>
+
+<span class="nc" id="L124">        String currentServerAddr = serverListMgr.getCurrentServerAddr();</span>
+<span class="nc" id="L125">        int maxRetry = this.maxRetry;</span>
+
+        do {
+
+            try {
+<span class="nc" id="L130">                List&lt;String&gt; newHeaders = getSpasHeaders(paramValues);</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">                if (headers != null) {</span>
+<span class="nc" id="L132">                    newHeaders.addAll(headers);</span>
+                }
+
+<span class="nc" id="L135">                HttpResult result = HttpSimpleClient.httpPost(</span>
+<span class="nc" id="L136">                    getUrl(currentServerAddr, path), newHeaders, paramValues, encoding,</span>
+                    readTimeoutMs, isSSL);
+<span class="nc bnc" id="L138" title="All 6 branches missed.">                if (result.code == HttpURLConnection.HTTP_INTERNAL_ERROR</span>
+                    || result.code == HttpURLConnection.HTTP_BAD_GATEWAY
+                    || result.code == HttpURLConnection.HTTP_UNAVAILABLE) {
+<span class="nc" id="L141">                    LOGGER.error(&quot;[NACOS ConnectException] currentServerAddr: {}, httpCode: {}&quot;,</span>
+<span class="nc" id="L142">                        currentServerAddr, result.code);</span>
+                } else {
+                    // Update the currently available server addr
+<span class="nc" id="L145">                    serverListMgr.updateCurrentServerAddr(currentServerAddr);</span>
+<span class="nc" id="L146">                    return result;</span>
+                }
+<span class="nc" id="L148">            } catch (ConnectException ce) {</span>
+<span class="nc" id="L149">                LOGGER.error(&quot;[NACOS ConnectException httpPost] currentServerAddr: {}, err : {}&quot;, currentServerAddr, ce.getMessage());</span>
+<span class="nc" id="L150">            } catch (SocketTimeoutException stoe) {</span>
+<span class="nc" id="L151">                LOGGER.error(&quot;[NACOS SocketTimeoutException httpPost] currentServerAddr: {}， err : {}&quot;, currentServerAddr, stoe.getMessage());</span>
+<span class="nc" id="L152">            } catch (IOException ioe) {</span>
+<span class="nc" id="L153">                LOGGER.error(&quot;[NACOS IOException httpPost] currentServerAddr: &quot; + currentServerAddr, ioe);</span>
+<span class="nc" id="L154">                throw ioe;</span>
+<span class="nc" id="L155">            }</span>
+
+<span class="nc bnc" id="L157" title="All 2 branches missed.">            if (serverListMgr.getIterator().hasNext()) {</span>
+<span class="nc" id="L158">                currentServerAddr = serverListMgr.getIterator().next();</span>
+            } else {
+<span class="nc" id="L160">                maxRetry --;</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">                if (maxRetry &lt; 0) {</span>
+<span class="nc" id="L162">                    throw new ConnectException(&quot;[NACOS HTTP-POST] The maximum number of tolerable server reconnection errors has been reached&quot;);</span>
+                }
+<span class="nc" id="L164">                serverListMgr.refreshCurrentServerAddr();</span>
+            }
+
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        } while (System.currentTimeMillis() &lt;= endTime);</span>
+
+<span class="nc" id="L169">        LOGGER.error(&quot;no available server, currentServerAddr : {}&quot;, currentServerAddr);</span>
+<span class="nc" id="L170">        throw new ConnectException(&quot;no available server, currentServerAddr : &quot; + currentServerAddr);</span>
+    }
+
+    @Override
+    public HttpResult httpDelete(String path, List&lt;String&gt; headers, List&lt;String&gt; paramValues, String encoding,
+                                 long readTimeoutMs) throws IOException {
+<span class="nc" id="L176">        final long endTime = System.currentTimeMillis() + readTimeoutMs;</span>
+<span class="nc" id="L177">        boolean isSSL = false;</span>
+
+<span class="nc" id="L179">        String currentServerAddr = serverListMgr.getCurrentServerAddr();</span>
+<span class="nc" id="L180">        int maxRetry = this.maxRetry;</span>
+
+        do {
+            try {
+<span class="nc" id="L184">                List&lt;String&gt; newHeaders = getSpasHeaders(paramValues);</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">                if (headers != null) {</span>
+<span class="nc" id="L186">                    newHeaders.addAll(headers);</span>
+                }
+<span class="nc" id="L188">                HttpResult result = HttpSimpleClient.httpDelete(</span>
+<span class="nc" id="L189">                    getUrl(currentServerAddr, path), newHeaders, paramValues, encoding,</span>
+                    readTimeoutMs, isSSL);
+<span class="nc bnc" id="L191" title="All 6 branches missed.">                if (result.code == HttpURLConnection.HTTP_INTERNAL_ERROR</span>
+                    || result.code == HttpURLConnection.HTTP_BAD_GATEWAY
+                    || result.code == HttpURLConnection.HTTP_UNAVAILABLE) {
+<span class="nc" id="L194">                    LOGGER.error(&quot;[NACOS ConnectException] currentServerAddr: {}, httpCode: {}&quot;,</span>
+<span class="nc" id="L195">                        serverListMgr.getCurrentServerAddr(), result.code);</span>
+                } else {
+                    // Update the currently available server addr
+<span class="nc" id="L198">                    serverListMgr.updateCurrentServerAddr(currentServerAddr);</span>
+<span class="nc" id="L199">                    return result;</span>
+                }
+<span class="nc" id="L201">            } catch (ConnectException ce) {</span>
+<span class="nc" id="L202">                LOGGER.error(&quot;[NACOS ConnectException httpDelete] currentServerAddr:{}, err : {}&quot;, serverListMgr.getCurrentServerAddr(), ce.getMessage());</span>
+<span class="nc" id="L203">            } catch (SocketTimeoutException stoe) {</span>
+<span class="nc" id="L204">                LOGGER.error(&quot;[NACOS SocketTimeoutException httpDelete] currentServerAddr:{}， err : {}&quot;, serverListMgr.getCurrentServerAddr(), stoe.getMessage());</span>
+<span class="nc" id="L205">            } catch (IOException ioe) {</span>
+<span class="nc" id="L206">                LOGGER.error(&quot;[NACOS IOException httpDelete] currentServerAddr: &quot; + serverListMgr.getCurrentServerAddr(), ioe);</span>
+<span class="nc" id="L207">                throw ioe;</span>
+<span class="nc" id="L208">            }</span>
+
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            if (serverListMgr.getIterator().hasNext()) {</span>
+<span class="nc" id="L211">                currentServerAddr = serverListMgr.getIterator().next();</span>
+            } else {
+<span class="nc" id="L213">                maxRetry --;</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">                if (maxRetry &lt; 0) {</span>
+<span class="nc" id="L215">                    throw new ConnectException(&quot;[NACOS HTTP-DELETE] The maximum number of tolerable server reconnection errors has been reached&quot;);</span>
+                }
+<span class="nc" id="L217">                serverListMgr.refreshCurrentServerAddr();</span>
+            }
+
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        } while (System.currentTimeMillis() &lt;= endTime);</span>
+
+<span class="nc" id="L222">        LOGGER.error(&quot;no available server&quot;);</span>
+<span class="nc" id="L223">        throw new ConnectException(&quot;no available server&quot;);</span>
+    }
+
+    private String getUrl(String serverAddr, String relativePath) {
+<span class="nc" id="L227">        return serverAddr + &quot;/&quot; + serverListMgr.getContentPath() + relativePath;</span>
+    }
+
+    public static String getAppname() {
+<span class="nc" id="L231">        return ParamUtil.getAppName();</span>
+    }
+
+<span class="nc" id="L234">    public ServerHttpAgent(ServerListManager mgr) {</span>
+<span class="nc" id="L235">        serverListMgr = mgr;</span>
+<span class="nc" id="L236">    }</span>
+
+<span class="nc" id="L238">    public ServerHttpAgent(ServerListManager mgr, Properties properties) {</span>
+<span class="nc" id="L239">        serverListMgr = mgr;</span>
+<span class="nc" id="L240">        init(properties);</span>
+<span class="nc" id="L241">    }</span>
+
+<span class="nc" id="L243">    public ServerHttpAgent(Properties properties) throws NacosException {</span>
+<span class="nc" id="L244">        serverListMgr = new ServerListManager(properties);</span>
+<span class="nc" id="L245">        init(properties);</span>
+<span class="nc" id="L246">    }</span>
+
+    private void init(Properties properties) {
+<span class="nc" id="L249">        initEncode(properties);</span>
+<span class="nc" id="L250">        initAkSk(properties);</span>
+<span class="nc" id="L251">        initMaxRetry(properties);</span>
+<span class="nc" id="L252">    }</span>
+
+    private void initEncode(Properties properties) {
+<span class="nc" id="L255">        encode = TemplateUtils.stringEmptyAndThenExecute(properties.getProperty(PropertyKeyConst.ENCODE), new Callable&lt;String&gt;() {</span>
+            @Override
+            public String call() throws Exception {
+<span class="nc" id="L258">                return Constants.ENCODE;</span>
+            }
+        });
+<span class="nc" id="L261">    }</span>
+
+    private void initAkSk(Properties properties) {
+<span class="nc" id="L264">        String ramRoleName = properties.getProperty(PropertyKeyConst.RAM_ROLE_NAME);</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">        if (!StringUtils.isBlank(ramRoleName)) {</span>
+<span class="nc" id="L266">            STSConfig.getInstance().setRamRoleName(ramRoleName);</span>
+        }
+
+<span class="nc" id="L269">        String ak = properties.getProperty(PropertyKeyConst.ACCESS_KEY);</span>
+<span class="nc bnc" id="L270" title="All 2 branches missed.">        if (StringUtils.isBlank(ak)) {</span>
+<span class="nc" id="L271">            accessKey = SpasAdapter.getAk();</span>
+        } else {
+<span class="nc" id="L273">            accessKey = ak;</span>
+        }
+
+<span class="nc" id="L276">        String sk = properties.getProperty(PropertyKeyConst.SECRET_KEY);</span>
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        if (StringUtils.isBlank(sk)) {</span>
+<span class="nc" id="L278">            secretKey = SpasAdapter.getSk();</span>
+        } else {
+<span class="nc" id="L280">            secretKey = sk;</span>
+        }
+<span class="nc" id="L282">    }</span>
+
+    private void initMaxRetry(Properties properties) {
+<span class="nc" id="L285">        maxRetry = NumberUtils.toInt(String.valueOf(properties.get(PropertyKeyConst.MAX_RETRY)), Constants.MAX_RETRY);</span>
+<span class="nc" id="L286">    }</span>
+
+    @Override
+    public synchronized void start() throws NacosException {
+<span class="nc" id="L290">        serverListMgr.start();</span>
+<span class="nc" id="L291">    }</span>
+
+    private List&lt;String&gt; getSpasHeaders(List&lt;String&gt; paramValues) throws IOException {
+<span class="nc" id="L294">        List&lt;String&gt; newHeaders = new ArrayList&lt;String&gt;();</span>
+        // STS 临时凭证鉴权的优先级高于 AK/SK 鉴权
+<span class="nc bnc" id="L296" title="All 2 branches missed.">        if (STSConfig.getInstance().isSTSOn()) {</span>
+<span class="nc" id="L297">            STSCredential sTSCredential = getSTSCredential();</span>
+<span class="nc" id="L298">            accessKey = sTSCredential.accessKeyId;</span>
+<span class="nc" id="L299">            secretKey = sTSCredential.accessKeySecret;</span>
+<span class="nc" id="L300">            newHeaders.add(&quot;Spas-SecurityToken&quot;);</span>
+<span class="nc" id="L301">            newHeaders.add(sTSCredential.securityToken);</span>
+        }
+
+<span class="nc bnc" id="L304" title="All 4 branches missed.">        if (StringUtils.isNotEmpty(accessKey) &amp;&amp; StringUtils.isNotEmpty(secretKey)) {</span>
+<span class="nc" id="L305">            newHeaders.add(&quot;Spas-AccessKey&quot;);</span>
+<span class="nc" id="L306">            newHeaders.add(accessKey);</span>
+<span class="nc" id="L307">            List&lt;String&gt; signHeaders = SpasAdapter.getSignHeaders(paramValues, secretKey);</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">            if (signHeaders != null) {</span>
+<span class="nc" id="L309">                newHeaders.addAll(signHeaders);</span>
+            }
+        }
+<span class="nc" id="L312">        return newHeaders;</span>
+    }
+
+    private STSCredential getSTSCredential() throws IOException {
+<span class="nc" id="L316">        boolean cacheSecurityCredentials = STSConfig.getInstance().isCacheSecurityCredentials();</span>
+<span class="nc bnc" id="L317" title="All 4 branches missed.">        if (cacheSecurityCredentials &amp;&amp; sTSCredential != null) {</span>
+<span class="nc" id="L318">            long currentTime = System.currentTimeMillis();</span>
+<span class="nc" id="L319">            long expirationTime = sTSCredential.expiration.getTime();</span>
+<span class="nc" id="L320">            int timeToRefreshInMillisecond = STSConfig.getInstance().getTimeToRefreshInMillisecond();</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">            if (expirationTime - currentTime &gt; timeToRefreshInMillisecond) {</span>
+<span class="nc" id="L322">                return sTSCredential;</span>
+            }
+        }
+<span class="nc" id="L325">        String stsResponse = getSTSResponse();</span>
+<span class="nc" id="L326">        STSCredential stsCredentialTmp = JSONUtils.deserializeObject(stsResponse,</span>
+<span class="nc" id="L327">            new TypeReference&lt;STSCredential&gt;() {</span>
+            });
+<span class="nc" id="L329">        sTSCredential = stsCredentialTmp;</span>
+<span class="nc" id="L330">        LOGGER.info(&quot;[getSTSCredential] code:{}, accessKeyId:{}, lastUpdated:{}, expiration:{}&quot;, sTSCredential.getCode(),</span>
+<span class="nc" id="L331">            sTSCredential.getAccessKeyId(), sTSCredential.getLastUpdated(), sTSCredential.getExpiration());</span>
+<span class="nc" id="L332">        return sTSCredential;</span>
+    }
+
+    private static String getSTSResponse() throws IOException {
+<span class="nc" id="L336">        String securityCredentials = STSConfig.getInstance().getSecurityCredentials();</span>
+<span class="nc bnc" id="L337" title="All 2 branches missed.">        if (securityCredentials != null) {</span>
+<span class="nc" id="L338">            return securityCredentials;</span>
+        }
+<span class="nc" id="L340">        String securityCredentialsUrl = STSConfig.getInstance().getSecurityCredentialsUrl();</span>
+<span class="nc" id="L341">        HttpURLConnection conn = null;</span>
+        int respCode;
+        String response;
+        try {
+<span class="nc" id="L345">            conn = (HttpURLConnection) new URL(securityCredentialsUrl).openConnection();</span>
+<span class="nc" id="L346">            conn.setRequestMethod(&quot;GET&quot;);</span>
+<span class="nc bnc" id="L347" title="All 2 branches missed.">            conn.setConnectTimeout(ParamUtil.getConnectTimeout() &gt; 100 ? ParamUtil.getConnectTimeout() : 100);</span>
+<span class="nc" id="L348">            conn.setReadTimeout(1000);</span>
+<span class="nc" id="L349">            conn.connect();</span>
+<span class="nc" id="L350">            respCode = conn.getResponseCode();</span>
+<span class="nc bnc" id="L351" title="All 2 branches missed.">            if (HttpURLConnection.HTTP_OK == respCode) {</span>
+<span class="nc" id="L352">                response = IOUtils.toString(conn.getInputStream(), Constants.ENCODE);</span>
+            } else {
+<span class="nc" id="L354">                response = IOUtils.toString(conn.getErrorStream(), Constants.ENCODE);</span>
+            }
+<span class="nc" id="L356">        } catch (IOException e) {</span>
+<span class="nc" id="L357">            LOGGER.error(&quot;can not get security credentials&quot;, e);</span>
+<span class="nc" id="L358">            throw e;</span>
+        } finally {
+<span class="nc bnc" id="L360" title="All 4 branches missed.">            if (null != conn) {</span>
+<span class="nc" id="L361">                conn.disconnect();</span>
+            }
+<span class="nc" id="L363">        }</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">        if (HttpURLConnection.HTTP_OK == respCode) {</span>
+<span class="nc" id="L365">            return response;</span>
+        }
+<span class="nc" id="L367">        LOGGER.error(&quot;can not get security credentials, securityCredentialsUrl: {}, responseCode: {}, response: {}&quot;,</span>
+<span class="nc" id="L368">            securityCredentialsUrl, respCode, response);</span>
+<span class="nc" id="L369">        throw new IOException(</span>
+            &quot;can not get security credentials, responseCode: &quot; + respCode + &quot;, response: &quot; + response);
+    }
+
+    @Override
+    public String getName() {
+<span class="nc" id="L375">        return serverListMgr.getName();</span>
+    }
+
+    @Override
+    public String getNamespace() {
+<span class="nc" id="L380">        return serverListMgr.getNamespace();</span>
+    }
+
+    @Override
+    public String getTenant() {
+<span class="nc" id="L385">        return serverListMgr.getTenant();</span>
+    }
+
+    @Override
+    public String getEncode() {
+<span class="nc" id="L390">        return encode;</span>
+    }
+
+    @SuppressWarnings(&quot;PMD.ClassNamingShouldBeCamelRule&quot;)
+<span class="nc" id="L394">    private static class STSCredential {</span>
+        @JsonProperty(value = &quot;AccessKeyId&quot;)
+        private String accessKeyId;
+        @JsonProperty(value = &quot;AccessKeySecret&quot;)
+        private String accessKeySecret;
+        @JsonProperty(value = &quot;Expiration&quot;)
+        private Date expiration;
+        @JsonProperty(value = &quot;SecurityToken&quot;)
+        private String securityToken;
+        @JsonProperty(value = &quot;LastUpdated&quot;)
+        private Date lastUpdated;
+        @JsonProperty(value = &quot;Code&quot;)
+        private String code;
+
+        public String getAccessKeyId() {
+<span class="nc" id="L409">            return accessKeyId;</span>
+        }
+
+        public Date getExpiration() {
+<span class="nc" id="L413">            return expiration;</span>
+        }
+
+        public Date getLastUpdated() {
+<span class="nc" id="L417">            return lastUpdated;</span>
+        }
+
+        public String getCode() {
+<span class="nc" id="L421">            return code;</span>
+        }
+
+        @Override
+        public String toString() {
+<span class="nc" id="L426">            return &quot;STSCredential{&quot; +</span>
+                &quot;accessKeyId='&quot; + accessKeyId + '\'' +
+                &quot;, accessKeySecret='&quot; + accessKeySecret + '\'' +
+                &quot;, expiration=&quot; + expiration +
+                &quot;, securityToken='&quot; + securityToken + '\'' +
+                &quot;, lastUpdated=&quot; + lastUpdated +
+                &quot;, code='&quot; + code + '\'' +
+                '}';
+        }
+    }
+
+    private String accessKey;
+    private String secretKey;
+    private String encode;
+<span class="nc" id="L440">    private int maxRetry = 3;</span>
+    private volatile STSCredential sTSCredential;
+    final ServerListManager serverListMgr;
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JwtTokenUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-console 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.console.utils</a> &gt; <span class="el_source">JwtTokenUtils.java</span></div><h1>JwtTokenUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.console.utils;
+
+import io.jsonwebtoken.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.PostConstruct;
+import java.util.Date;
+import java.util.List;
+
+
+/**
+ * Jwt token tool
+ *
+ * @author wfnuser
+ */
+@Component
+<span class="nc" id="L39">public class JwtTokenUtils {</span>
+
+<span class="nc" id="L41">    private final Logger log = LoggerFactory.getLogger(JwtTokenUtils.class);</span>
+
+    private static final String AUTHORITIES_KEY = &quot;auth&quot;;
+
+    /**
+     * secret key
+     */
+    private String secretKey;
+
+    /**
+     * Token validity time(ms)
+     */
+    private long tokenValidityInMilliseconds;
+
+    @PostConstruct
+    public void init() {
+<span class="nc" id="L57">        this.secretKey = &quot;SecretKey012345678901234567890123456789012345678901234567890123456789&quot;;</span>
+<span class="nc" id="L58">        this.tokenValidityInMilliseconds = 1000 * 60 * 30L;</span>
+<span class="nc" id="L59">    }</span>
+
+    /**
+     * Create token
+     *
+     * @param authentication auth info
+     * @return token
+     */
+    public String createToken(Authentication authentication) {
+        /**
+         * Current time
+         */
+<span class="nc" id="L71">        long now = (new Date()).getTime();</span>
+        /**
+         * Validity date
+         */
+        Date validity;
+<span class="nc" id="L76">        validity = new Date(now + this.tokenValidityInMilliseconds);</span>
+
+        /**
+         * create token
+         */
+<span class="nc" id="L81">        return Jwts.builder()</span>
+<span class="nc" id="L82">            .setSubject(authentication.getName())</span>
+<span class="nc" id="L83">            .claim(AUTHORITIES_KEY, &quot;&quot;)</span>
+<span class="nc" id="L84">            .setExpiration(validity)</span>
+<span class="nc" id="L85">            .signWith(SignatureAlgorithm.HS256, secretKey)</span>
+<span class="nc" id="L86">            .compact();</span>
+    }
+
+    /**
+     * Get auth Info
+     *
+     * @param token token
+     * @return auth info
+     */
+    public Authentication getAuthentication(String token) {
+        /**
+         *  parse the payload of token
+         */
+<span class="nc" id="L99">        Claims claims = Jwts.parser()</span>
+<span class="nc" id="L100">            .setSigningKey(secretKey)</span>
+<span class="nc" id="L101">            .parseClaimsJws(token)</span>
+<span class="nc" id="L102">            .getBody();</span>
+
+<span class="nc" id="L104">        List&lt;GrantedAuthority&gt; authorities = AuthorityUtils.commaSeparatedStringToAuthorityList((String) claims.get(AUTHORITIES_KEY));</span>
+
+
+<span class="nc" id="L107">        User principal = new User(claims.getSubject(), &quot;&quot;, authorities);</span>
+<span class="nc" id="L108">        return new UsernamePasswordAuthenticationToken(principal, &quot;&quot;, authorities);</span>
+    }
+
+    /**
+     * validate token
+     *
+     * @param token token
+     * @return whether valid
+     */
+    public boolean validateToken(String token) {
+        try {
+<span class="nc" id="L119">            Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token);</span>
+<span class="nc" id="L120">            return true;</span>
+<span class="nc" id="L121">        } catch (SignatureException e) {</span>
+<span class="nc" id="L122">            log.info(&quot;Invalid JWT signature.&quot;);</span>
+<span class="nc" id="L123">            log.trace(&quot;Invalid JWT signature trace: {}&quot;, e);</span>
+<span class="nc" id="L124">        } catch (MalformedJwtException e) {</span>
+<span class="nc" id="L125">            log.info(&quot;Invalid JWT token.&quot;);</span>
+<span class="nc" id="L126">            log.trace(&quot;Invalid JWT token trace: {}&quot;, e);</span>
+<span class="nc" id="L127">        } catch (ExpiredJwtException e) {</span>
+<span class="nc" id="L128">            log.info(&quot;Expired JWT token.&quot;);</span>
+<span class="nc" id="L129">            log.trace(&quot;Expired JWT token trace: {}&quot;, e);</span>
+<span class="nc" id="L130">        } catch (UnsupportedJwtException e) {</span>
+<span class="nc" id="L131">            log.info(&quot;Unsupported JWT token.&quot;);</span>
+<span class="nc" id="L132">            log.trace(&quot;Unsupported JWT token trace: {}&quot;, e);</span>
+<span class="nc" id="L133">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L134">            log.info(&quot;JWT token compact of handler are invalid.&quot;);</span>
+<span class="nc" id="L135">            log.trace(&quot;JWT token compact of handler are invalid trace: {}&quot;, e);</span>
+<span class="nc" id="L136">        }</span>
+<span class="nc" id="L137">        return false;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NacosNamingService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.naming</a> &gt; <span class="el_source">NacosNamingService.java</span></div><h1>NacosNamingService.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.naming;
+
+import com.alibaba.nacos.api.PropertyKeyConst;
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacos.api.naming.listener.EventListener;
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.ListView;
+import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
+import com.alibaba.nacos.api.naming.utils.NamingUtils;
+import com.alibaba.nacos.api.selector.AbstractSelector;
+import com.alibaba.nacos.client.naming.beat.BeatInfo;
+import com.alibaba.nacos.client.naming.beat.BeatReactor;
+import com.alibaba.nacos.client.naming.core.Balancer;
+import com.alibaba.nacos.client.naming.core.EventDispatcher;
+import com.alibaba.nacos.client.naming.core.HostReactor;
+import com.alibaba.nacos.client.naming.net.NamingProxy;
+import com.alibaba.nacos.client.naming.utils.CollectionUtils;
+import com.alibaba.nacos.client.naming.utils.InitUtils;
+import com.alibaba.nacos.client.naming.utils.UtilAndComs;
+import com.alibaba.nacos.client.utils.StringUtils;
+import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * @author nkorange
+ */
+@SuppressWarnings(&quot;PMD.ServiceOrDaoClassShouldEndWithImplRule&quot;)
+public class NacosNamingService implements NamingService {
+    private static final String DEFAULT_PORT = &quot;8080&quot;;
+<span class="nc" id="L53">    private static final long DEFAULT_HEART_BEAT_INTERVAL = TimeUnit.SECONDS.toMillis(5);</span>
+
+    /**
+     * Each Naming instance should have different namespace.
+     */
+    private String namespace;
+
+    private String endpoint;
+
+    private String serverList;
+
+    private String cacheDir;
+
+    private String logName;
+
+    private HostReactor hostReactor;
+
+    private BeatReactor beatReactor;
+
+    private EventDispatcher eventDispatcher;
+
+    private NamingProxy serverProxy;
+
+<span class="nc" id="L76">    public NacosNamingService(String serverList) {</span>
+<span class="nc" id="L77">        Properties properties = new Properties();</span>
+<span class="nc" id="L78">        properties.setProperty(PropertyKeyConst.SERVER_ADDR, serverList);</span>
+
+<span class="nc" id="L80">        init(properties);</span>
+<span class="nc" id="L81">    }</span>
+
+<span class="nc" id="L83">    public NacosNamingService(Properties properties) {</span>
+<span class="nc" id="L84">        init(properties);</span>
+<span class="nc" id="L85">    }</span>
+
+    private void init(Properties properties) {
+<span class="nc" id="L88">        namespace = InitUtils.initNamespaceForNaming(properties);</span>
+<span class="nc" id="L89">        initServerAddr(properties);</span>
+<span class="nc" id="L90">        InitUtils.initWebRootContext();</span>
+<span class="nc" id="L91">        initCacheDir();</span>
+<span class="nc" id="L92">        initLogName(properties);</span>
+
+<span class="nc" id="L94">        eventDispatcher = new EventDispatcher();</span>
+<span class="nc" id="L95">        serverProxy = new NamingProxy(namespace, endpoint, serverList);</span>
+<span class="nc" id="L96">        serverProxy.setProperties(properties);</span>
+<span class="nc" id="L97">        beatReactor = new BeatReactor(serverProxy, initClientBeatThreadCount(properties));</span>
+<span class="nc" id="L98">        hostReactor = new HostReactor(eventDispatcher, serverProxy, cacheDir, isLoadCacheAtStart(properties), initPollingThreadCount(properties));</span>
+<span class="nc" id="L99">    }</span>
+
+    private int initClientBeatThreadCount(Properties properties) {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (properties == null) {</span>
+<span class="nc" id="L103">            return UtilAndComs.DEFAULT_CLIENT_BEAT_THREAD_COUNT;</span>
+        }
+
+<span class="nc" id="L106">        return NumberUtils.toInt(properties.getProperty(PropertyKeyConst.NAMING_CLIENT_BEAT_THREAD_COUNT),</span>
+            UtilAndComs.DEFAULT_CLIENT_BEAT_THREAD_COUNT);
+    }
+
+    private int initPollingThreadCount(Properties properties) {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        if (properties == null) {</span>
+
+<span class="nc" id="L113">            return UtilAndComs.DEFAULT_POLLING_THREAD_COUNT;</span>
+        }
+
+<span class="nc" id="L116">        return NumberUtils.toInt(properties.getProperty(PropertyKeyConst.NAMING_POLLING_THREAD_COUNT),</span>
+            UtilAndComs.DEFAULT_POLLING_THREAD_COUNT);
+    }
+
+    private boolean isLoadCacheAtStart(Properties properties) {
+<span class="nc" id="L121">        boolean loadCacheAtStart = false;</span>
+<span class="nc bnc" id="L122" title="All 4 branches missed.">        if (properties != null &amp;&amp; StringUtils.isNotEmpty(properties.getProperty(PropertyKeyConst.NAMING_LOAD_CACHE_AT_START))) {</span>
+<span class="nc" id="L123">            loadCacheAtStart = BooleanUtils.toBoolean(</span>
+<span class="nc" id="L124">                properties.getProperty(PropertyKeyConst.NAMING_LOAD_CACHE_AT_START));</span>
+        }
+
+<span class="nc" id="L127">        return loadCacheAtStart;</span>
+    }
+
+    private void initServerAddr(Properties properties) {
+<span class="nc" id="L131">        serverList = properties.getProperty(PropertyKeyConst.SERVER_ADDR);</span>
+<span class="nc" id="L132">        endpoint = InitUtils.initEndpoint(properties);</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(endpoint)) {</span>
+<span class="nc" id="L134">            serverList = &quot;&quot;;</span>
+        }
+<span class="nc" id="L136">    }</span>
+
+    private void initLogName(Properties properties) {
+<span class="nc" id="L139">        logName = System.getProperty(UtilAndComs.NACOS_NAMING_LOG_NAME);</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">        if (StringUtils.isEmpty(logName)) {</span>
+
+<span class="nc bnc" id="L142" title="All 4 branches missed.">            if (properties != null &amp;&amp; StringUtils.isNotEmpty(properties.getProperty(UtilAndComs.NACOS_NAMING_LOG_NAME))) {</span>
+<span class="nc" id="L143">                logName = properties.getProperty(UtilAndComs.NACOS_NAMING_LOG_NAME);</span>
+            } else {
+<span class="nc" id="L145">                logName = &quot;naming.log&quot;;</span>
+            }
+        }
+<span class="nc" id="L148">    }</span>
+
+    private void initCacheDir() {
+<span class="nc" id="L151">        cacheDir = System.getProperty(&quot;com.alibaba.nacos.naming.cache.dir&quot;);</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">        if (StringUtils.isEmpty(cacheDir)) {</span>
+<span class="nc" id="L153">            cacheDir = System.getProperty(&quot;user.home&quot;) + &quot;/nacos/naming/&quot; + namespace;</span>
+        }
+<span class="nc" id="L155">    }</span>
+
+    @Override
+    public void registerInstance(String serviceName, String ip, int port) throws NacosException {
+<span class="nc" id="L159">        registerInstance(serviceName, ip, port, Constants.DEFAULT_CLUSTER_NAME);</span>
+<span class="nc" id="L160">    }</span>
+
+    @Override
+    public void registerInstance(String serviceName, String groupName, String ip, int port) throws NacosException {
+<span class="nc" id="L164">        registerInstance(serviceName, groupName, ip, port, Constants.DEFAULT_CLUSTER_NAME);</span>
+<span class="nc" id="L165">    }</span>
+
+    @Override
+    public void registerInstance(String serviceName, String ip, int port, String clusterName) throws NacosException {
+<span class="nc" id="L169">        registerInstance(serviceName, Constants.DEFAULT_GROUP, ip, port, clusterName);</span>
+<span class="nc" id="L170">    }</span>
+
+    @Override
+    public void registerInstance(String serviceName, String groupName, String ip, int port, String clusterName) throws NacosException {
+
+<span class="nc" id="L175">        Instance instance = new Instance();</span>
+<span class="nc" id="L176">        instance.setIp(ip);</span>
+<span class="nc" id="L177">        instance.setPort(port);</span>
+<span class="nc" id="L178">        instance.setWeight(1.0);</span>
+<span class="nc" id="L179">        instance.setClusterName(clusterName);</span>
+
+<span class="nc" id="L181">        registerInstance(serviceName, groupName, instance);</span>
+<span class="nc" id="L182">    }</span>
+
+    @Override
+    public void registerInstance(String serviceName, Instance instance) throws NacosException {
+<span class="nc" id="L186">        registerInstance(serviceName, Constants.DEFAULT_GROUP, instance);</span>
+<span class="nc" id="L187">    }</span>
+
+    @Override
+    public void registerInstance(String serviceName, String groupName, Instance instance) throws NacosException {
+
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (instance.isEphemeral()) {</span>
+<span class="nc" id="L193">            BeatInfo beatInfo = new BeatInfo();</span>
+<span class="nc" id="L194">            beatInfo.setServiceName(NamingUtils.getGroupedName(serviceName, groupName));</span>
+<span class="nc" id="L195">            beatInfo.setIp(instance.getIp());</span>
+<span class="nc" id="L196">            beatInfo.setPort(instance.getPort());</span>
+<span class="nc" id="L197">            beatInfo.setCluster(instance.getClusterName());</span>
+<span class="nc" id="L198">            beatInfo.setWeight(instance.getWeight());</span>
+<span class="nc" id="L199">            beatInfo.setMetadata(instance.getMetadata());</span>
+<span class="nc" id="L200">            beatInfo.setScheduled(false);</span>
+<span class="nc" id="L201">            long instanceInterval = instance.getInstanceHeartBeatInterval();</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">            beatInfo.setPeriod(instanceInterval == 0 ? DEFAULT_HEART_BEAT_INTERVAL : instanceInterval);</span>
+
+<span class="nc" id="L204">            beatReactor.addBeatInfo(NamingUtils.getGroupedName(serviceName, groupName), beatInfo);</span>
+        }
+
+<span class="nc" id="L207">        serverProxy.registerService(NamingUtils.getGroupedName(serviceName, groupName), groupName, instance);</span>
+<span class="nc" id="L208">    }</span>
+
+
+    @Override
+    public void deregisterInstance(String serviceName, String ip, int port) throws NacosException {
+<span class="nc" id="L213">        deregisterInstance(serviceName, ip, port, Constants.DEFAULT_CLUSTER_NAME);</span>
+<span class="nc" id="L214">    }</span>
+
+    @Override
+    public void deregisterInstance(String serviceName, String groupName, String ip, int port) throws NacosException {
+<span class="nc" id="L218">        deregisterInstance(serviceName, groupName, ip, port, Constants.DEFAULT_CLUSTER_NAME);</span>
+<span class="nc" id="L219">    }</span>
+
+    @Override
+    public void deregisterInstance(String serviceName, String ip, int port, String clusterName) throws NacosException {
+<span class="nc" id="L223">        deregisterInstance(serviceName, Constants.DEFAULT_GROUP, ip, port, clusterName);</span>
+<span class="nc" id="L224">    }</span>
+
+    @Override
+    public void deregisterInstance(String serviceName, String groupName, String ip, int port, String clusterName) throws NacosException {
+<span class="nc" id="L228">        Instance instance = new Instance();</span>
+<span class="nc" id="L229">        instance.setIp(ip);</span>
+<span class="nc" id="L230">        instance.setPort(port);</span>
+<span class="nc" id="L231">        instance.setClusterName(clusterName);</span>
+
+<span class="nc" id="L233">        deregisterInstance(serviceName, groupName, instance);</span>
+<span class="nc" id="L234">    }</span>
+
+    @Override
+    public void deregisterInstance(String serviceName, Instance instance) throws NacosException {
+<span class="nc" id="L238">        deregisterInstance(serviceName, Constants.DEFAULT_GROUP, instance);</span>
+<span class="nc" id="L239">    }</span>
+
+    @Override
+    public void deregisterInstance(String serviceName, String groupName, Instance instance) throws NacosException {
+<span class="nc bnc" id="L243" title="All 2 branches missed.">        if (instance.isEphemeral()) {</span>
+<span class="nc" id="L244">            beatReactor.removeBeatInfo(NamingUtils.getGroupedName(serviceName, groupName), instance.getIp(), instance.getPort());</span>
+        }
+<span class="nc" id="L246">        serverProxy.deregisterService(NamingUtils.getGroupedName(serviceName, groupName), instance);</span>
+<span class="nc" id="L247">    }</span>
+
+    @Override
+    public List&lt;Instance&gt; getAllInstances(String serviceName) throws NacosException {
+<span class="nc" id="L251">        return getAllInstances(serviceName, new ArrayList&lt;String&gt;());</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; getAllInstances(String serviceName, String groupName) throws NacosException {
+<span class="nc" id="L256">        return getAllInstances(serviceName, groupName, new ArrayList&lt;String&gt;());</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; getAllInstances(String serviceName, boolean subscribe) throws NacosException {
+<span class="nc" id="L261">        return getAllInstances(serviceName, new ArrayList&lt;String&gt;(), subscribe);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; getAllInstances(String serviceName, String groupName, boolean subscribe) throws NacosException {
+<span class="nc" id="L266">        return getAllInstances(serviceName, groupName, new ArrayList&lt;String&gt;(), subscribe);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; getAllInstances(String serviceName, List&lt;String&gt; clusters) throws NacosException {
+<span class="nc" id="L271">        return getAllInstances(serviceName, clusters, true);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; getAllInstances(String serviceName, String groupName, List&lt;String&gt; clusters) throws NacosException {
+<span class="nc" id="L276">        return getAllInstances(serviceName, groupName, clusters, true);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; getAllInstances(String serviceName, List&lt;String&gt; clusters, boolean subscribe)
+        throws NacosException {
+<span class="nc" id="L282">        return getAllInstances(serviceName, Constants.DEFAULT_GROUP, clusters, subscribe);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; getAllInstances(String serviceName, String groupName, List&lt;String&gt; clusters, boolean subscribe) throws NacosException {
+
+        ServiceInfo serviceInfo;
+<span class="nc bnc" id="L289" title="All 2 branches missed.">        if (subscribe) {</span>
+<span class="nc" id="L290">            serviceInfo = hostReactor.getServiceInfo(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, &quot;,&quot;));</span>
+        } else {
+<span class="nc" id="L292">            serviceInfo = hostReactor.getServiceInfoDirectlyFromServer(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, &quot;,&quot;));</span>
+        }
+        List&lt;Instance&gt; list;
+<span class="nc bnc" id="L295" title="All 4 branches missed.">        if (serviceInfo == null || CollectionUtils.isEmpty(list = serviceInfo.getHosts())) {</span>
+<span class="nc" id="L296">            return new ArrayList&lt;Instance&gt;();</span>
+        }
+<span class="nc" id="L298">        return list;</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; selectInstances(String serviceName, boolean healthy) throws NacosException {
+<span class="nc" id="L303">        return selectInstances(serviceName, new ArrayList&lt;String&gt;(), healthy);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; selectInstances(String serviceName, String groupName, boolean healthy) throws NacosException {
+<span class="nc" id="L308">        return selectInstances(serviceName, groupName, healthy, true);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; selectInstances(String serviceName, boolean healthy, boolean subscribe)
+        throws NacosException {
+<span class="nc" id="L314">        return selectInstances(serviceName, new ArrayList&lt;String&gt;(), healthy, subscribe);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; selectInstances(String serviceName, String groupName, boolean healthy, boolean subscribe) throws NacosException {
+<span class="nc" id="L319">        return selectInstances(serviceName, groupName, new ArrayList&lt;String&gt;(), healthy, subscribe);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; selectInstances(String serviceName, List&lt;String&gt; clusters, boolean healthy)
+        throws NacosException {
+<span class="nc" id="L325">        return selectInstances(serviceName, clusters, healthy, true);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; selectInstances(String serviceName, String groupName, List&lt;String&gt; clusters, boolean healthy) throws NacosException {
+<span class="nc" id="L330">        return selectInstances(serviceName, groupName, clusters, healthy, true);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; selectInstances(String serviceName, List&lt;String&gt; clusters, boolean healthy,
+                                          boolean subscribe) throws NacosException {
+<span class="nc" id="L336">        return selectInstances(serviceName, Constants.DEFAULT_GROUP, clusters, healthy, subscribe);</span>
+    }
+
+    @Override
+    public List&lt;Instance&gt; selectInstances(String serviceName, String groupName, List&lt;String&gt; clusters, boolean healthy, boolean subscribe) throws NacosException {
+
+        ServiceInfo serviceInfo;
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        if (subscribe) {</span>
+<span class="nc" id="L344">            serviceInfo = hostReactor.getServiceInfo(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, &quot;,&quot;));</span>
+        } else {
+<span class="nc" id="L346">            serviceInfo = hostReactor.getServiceInfoDirectlyFromServer(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, &quot;,&quot;));</span>
+        }
+<span class="nc" id="L348">        return selectInstances(serviceInfo, healthy);</span>
+    }
+
+    @Override
+    public Instance selectOneHealthyInstance(String serviceName) throws NacosException {
+<span class="nc" id="L353">        return selectOneHealthyInstance(serviceName, new ArrayList&lt;String&gt;());</span>
+    }
+
+    @Override
+    public Instance selectOneHealthyInstance(String serviceName, String groupName) throws NacosException {
+<span class="nc" id="L358">        return selectOneHealthyInstance(serviceName, groupName, true);</span>
+    }
+
+    @Override
+    public Instance selectOneHealthyInstance(String serviceName, boolean subscribe) throws NacosException {
+<span class="nc" id="L363">        return selectOneHealthyInstance(serviceName, new ArrayList&lt;String&gt;(), subscribe);</span>
+    }
+
+    @Override
+    public Instance selectOneHealthyInstance(String serviceName, String groupName, boolean subscribe) throws NacosException {
+<span class="nc" id="L368">        return selectOneHealthyInstance(serviceName, groupName, new ArrayList&lt;String&gt;(), subscribe);</span>
+    }
+
+    @Override
+    public Instance selectOneHealthyInstance(String serviceName, List&lt;String&gt; clusters) throws NacosException {
+<span class="nc" id="L373">        return selectOneHealthyInstance(serviceName, clusters, true);</span>
+    }
+
+    @Override
+    public Instance selectOneHealthyInstance(String serviceName, String groupName, List&lt;String&gt; clusters) throws NacosException {
+<span class="nc" id="L378">        return selectOneHealthyInstance(serviceName, groupName, clusters, true);</span>
+    }
+
+    @Override
+    public Instance selectOneHealthyInstance(String serviceName, List&lt;String&gt; clusters, boolean subscribe)
+        throws NacosException {
+<span class="nc" id="L384">        return selectOneHealthyInstance(serviceName, Constants.DEFAULT_GROUP, clusters, subscribe);</span>
+    }
+
+    @Override
+    public Instance selectOneHealthyInstance(String serviceName, String groupName, List&lt;String&gt; clusters, boolean subscribe) throws NacosException {
+
+<span class="nc bnc" id="L390" title="All 2 branches missed.">        if (subscribe) {</span>
+<span class="nc" id="L391">            return Balancer.RandomByWeight.selectHost(</span>
+<span class="nc" id="L392">                hostReactor.getServiceInfo(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, &quot;,&quot;)));</span>
+        } else {
+<span class="nc" id="L394">            return Balancer.RandomByWeight.selectHost(</span>
+<span class="nc" id="L395">                hostReactor.getServiceInfoDirectlyFromServer(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, &quot;,&quot;)));</span>
+        }
+    }
+
+    @Override
+    public void subscribe(String serviceName, EventListener listener) throws NacosException {
+<span class="nc" id="L401">        subscribe(serviceName, new ArrayList&lt;String&gt;(), listener);</span>
+<span class="nc" id="L402">    }</span>
+
+    @Override
+    public void subscribe(String serviceName, String groupName, EventListener listener) throws NacosException {
+<span class="nc" id="L406">        subscribe(serviceName, groupName, new ArrayList&lt;String&gt;(), listener);</span>
+<span class="nc" id="L407">    }</span>
+
+    @Override
+    public void subscribe(String serviceName, List&lt;String&gt; clusters, EventListener listener) throws NacosException {
+<span class="nc" id="L411">        subscribe(serviceName, Constants.DEFAULT_GROUP, clusters, listener);</span>
+<span class="nc" id="L412">    }</span>
+
+    @Override
+    public void subscribe(String serviceName, String groupName, List&lt;String&gt; clusters, EventListener listener) throws NacosException {
+<span class="nc" id="L416">        eventDispatcher.addListener(hostReactor.getServiceInfo(NamingUtils.getGroupedName(serviceName, groupName),</span>
+<span class="nc" id="L417">            StringUtils.join(clusters, &quot;,&quot;)), StringUtils.join(clusters, &quot;,&quot;), listener);</span>
+<span class="nc" id="L418">    }</span>
+
+    @Override
+    public void unsubscribe(String serviceName, EventListener listener) throws NacosException {
+<span class="nc" id="L422">        unsubscribe(serviceName, new ArrayList&lt;String&gt;(), listener);</span>
+<span class="nc" id="L423">    }</span>
+
+    @Override
+    public void unsubscribe(String serviceName, String groupName, EventListener listener) throws NacosException {
+<span class="nc" id="L427">        unsubscribe(serviceName, groupName, new ArrayList&lt;String&gt;(), listener);</span>
+<span class="nc" id="L428">    }</span>
+
+    @Override
+    public void unsubscribe(String serviceName, List&lt;String&gt; clusters, EventListener listener) throws NacosException {
+<span class="nc" id="L432">        unsubscribe(serviceName, Constants.DEFAULT_GROUP, clusters, listener);</span>
+<span class="nc" id="L433">    }</span>
+
+    @Override
+    public void unsubscribe(String serviceName, String groupName, List&lt;String&gt; clusters, EventListener listener) throws NacosException {
+<span class="nc" id="L437">        eventDispatcher.removeListener(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, &quot;,&quot;), listener);</span>
+<span class="nc" id="L438">    }</span>
+
+    @Override
+    public ListView&lt;String&gt; getServicesOfServer(int pageNo, int pageSize) throws NacosException {
+<span class="nc" id="L442">        return serverProxy.getServiceList(pageNo, pageSize, Constants.DEFAULT_GROUP);</span>
+    }
+
+    @Override
+    public ListView&lt;String&gt; getServicesOfServer(int pageNo, int pageSize, String groupName) throws NacosException {
+<span class="nc" id="L447">        return getServicesOfServer(pageNo, pageSize, groupName, null);</span>
+    }
+
+    @Override
+    public ListView&lt;String&gt; getServicesOfServer(int pageNo, int pageSize, AbstractSelector selector)
+        throws NacosException {
+<span class="nc" id="L453">        return getServicesOfServer(pageNo, pageSize, Constants.DEFAULT_GROUP, selector);</span>
+    }
+
+    @Override
+    public ListView&lt;String&gt; getServicesOfServer(int pageNo, int pageSize, String groupName, AbstractSelector selector) throws NacosException {
+<span class="nc" id="L458">        return serverProxy.getServiceList(pageNo, pageSize, groupName, selector);</span>
+    }
+
+    @Override
+    public List&lt;ServiceInfo&gt; getSubscribeServices() {
+<span class="nc" id="L463">        return eventDispatcher.getSubscribeServices();</span>
+    }
+
+    @Override
+    public String getServerStatus() {
+<span class="nc bnc" id="L468" title="All 2 branches missed.">        return serverProxy.serverHealthy() ? &quot;UP&quot; : &quot;DOWN&quot;;</span>
+    }
+
+    private List&lt;Instance&gt; selectInstances(ServiceInfo serviceInfo, boolean healthy) {
+        List&lt;Instance&gt; list;
+<span class="nc bnc" id="L473" title="All 4 branches missed.">        if (serviceInfo == null || CollectionUtils.isEmpty(list = serviceInfo.getHosts())) {</span>
+<span class="nc" id="L474">            return new ArrayList&lt;Instance&gt;();</span>
+        }
+
+<span class="nc" id="L477">        Iterator&lt;Instance&gt; iterator = list.iterator();</span>
+<span class="nc bnc" id="L478" title="All 2 branches missed.">        while (iterator.hasNext()) {</span>
+<span class="nc" id="L479">            Instance instance = iterator.next();</span>
+<span class="nc bnc" id="L480" title="All 6 branches missed.">            if (healthy != instance.isHealthy() || !instance.isEnabled() || instance.getWeight() &lt;= 0) {</span>
+<span class="nc" id="L481">                iterator.remove();</span>
+            }
+<span class="nc" id="L483">        }</span>
+
+<span class="nc" id="L485">        return list;</span>
+    }
+
+    public BeatReactor getBeatReactor() {
+<span class="nc" id="L489">        return beatReactor;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

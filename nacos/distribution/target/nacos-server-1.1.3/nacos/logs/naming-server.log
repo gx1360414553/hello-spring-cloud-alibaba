@@ -1,0 +1,31 @@
+2019-08-20 18:08:46,335 INFO listen for service meta change
+
+2019-08-20 18:08:56,515 INFO [SERVER-INIT] got port: 8848
+
+2019-08-20 18:08:56,515 INFO [SERVER-INIT] got path: /nacos
+
+2019-08-20 18:09:06,233 INFO receive config info: unknown#192.168.214.1:8848#1566295746233#2
+
+
+2019-08-20 18:09:21,297 INFO [NACOS-DISTRO] healthy server list changed, disable health check for 60000 ms from now on, old: [], new: [{"adWeight":0,"alive":true,"ip":"192.168.214.1","key":"192.168.214.1:8848","lastRefTime":1566295746233,"lastRefTimeStr":"2019-08-20 18:09:06","servePort":8848,"site":"unknown","weight":2}]
+
+2019-08-20 18:09:21,297 INFO receive config info: unknown#192.168.214.1:8848#1566295761297#2
+
+
+2019-08-20 18:09:36,298 INFO receive config info: unknown#192.168.214.1:8848#1566295776298#2
+
+
+2019-08-20 18:09:51,321 INFO receive config info: unknown#192.168.214.1:8848#1566295791321#2
+
+
+2019-08-20 18:10:06,323 INFO receive config info: unknown#192.168.214.1:8848#1566295806323#2
+
+
+2019-08-20 18:10:21,324 INFO [NACOS-DISTRO] distro threshold restored and stable now, enable health check. current ratio: 1.0
+
+2019-08-20 18:10:21,324 INFO receive config info: unknown#192.168.214.1:8848#1566295821324#2
+
+
+2019-08-20 18:10:36,348 INFO receive config info: unknown#192.168.214.1:8848#1566295836348#2
+
+

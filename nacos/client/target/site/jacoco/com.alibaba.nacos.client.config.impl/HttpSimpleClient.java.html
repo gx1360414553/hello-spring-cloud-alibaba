@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HttpSimpleClient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.config.impl</a> &gt; <span class="el_source">HttpSimpleClient.java</span></div><h1>HttpSimpleClient.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.config.impl;
+
+import com.alibaba.nacos.api.common.Constants;
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.client.config.utils.IOUtils;
+import com.alibaba.nacos.client.config.utils.MD5;
+import com.alibaba.nacos.client.utils.ParamUtil;
+import com.alibaba.nacos.common.util.UuidUtils;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Http tool
+ *
+ * @author Nacos
+ *
+ */
+<span class="nc" id="L41">public class HttpSimpleClient {</span>
+
+    static public HttpResult httpGet(String url, List&lt;String&gt; headers, List&lt;String&gt; paramValues,
+                                     String encoding, long readTimeoutMs, boolean isSSL) throws IOException {
+<span class="nc" id="L45">        String encodedContent = encodingParams(paramValues, encoding);</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        url += (null == encodedContent) ? &quot;&quot; : (&quot;?&quot; + encodedContent);</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        if (Limiter.isLimit(MD5.getInstance().getMD5String(</span>
+<span class="nc" id="L48">            new StringBuilder(url).append(encodedContent).toString()))) {</span>
+<span class="nc" id="L49">            return new HttpResult(NacosException.CLIENT_OVER_THRESHOLD,</span>
+                &quot;More than client-side current limit threshold&quot;);
+        }
+
+<span class="nc" id="L53">        HttpURLConnection conn = null;</span>
+
+        try {
+<span class="nc" id="L56">            conn = (HttpURLConnection)new URL(url).openConnection();</span>
+<span class="nc" id="L57">            conn.setRequestMethod(&quot;GET&quot;);</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">            conn.setConnectTimeout(ParamUtil.getConnectTimeout() &gt; 100 ? ParamUtil.getConnectTimeout() : 100);</span>
+<span class="nc" id="L59">            conn.setReadTimeout((int)readTimeoutMs);</span>
+<span class="nc" id="L60">            List&lt;String&gt; newHeaders = getHeaders(url, headers, paramValues);</span>
+<span class="nc" id="L61">            setHeaders(conn, newHeaders, encoding);</span>
+
+<span class="nc" id="L63">            conn.connect();</span>
+
+<span class="nc" id="L65">            int respCode = conn.getResponseCode();</span>
+<span class="nc" id="L66">            String resp = null;</span>
+
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            if (HttpURLConnection.HTTP_OK == respCode) {</span>
+<span class="nc" id="L69">                resp = IOUtils.toString(conn.getInputStream(), encoding);</span>
+            } else {
+<span class="nc" id="L71">                resp = IOUtils.toString(conn.getErrorStream(), encoding);</span>
+            }
+<span class="nc" id="L73">            return new HttpResult(respCode, conn.getHeaderFields(), resp);</span>
+        } finally {
+<span class="nc bnc" id="L75" title="All 4 branches missed.">            if (conn != null) {</span>
+<span class="nc" id="L76">                conn.disconnect();</span>
+            }
+<span class="nc" id="L78">        }</span>
+    }
+
+    /**
+     * 发送GET请求。
+     */
+    static public HttpResult httpGet(String url, List&lt;String&gt; headers, List&lt;String&gt; paramValues, String encoding,
+                                     long readTimeoutMs) throws IOException {
+<span class="nc" id="L86">        return httpGet(url, headers, paramValues, encoding, readTimeoutMs, false);</span>
+    }
+
+    /**
+     * 发送POST请求。
+     *
+     * @param url
+     * @param headers       请求Header，可以为null
+     * @param paramValues   参数，可以为null
+     * @param encoding      URL编码使用的字符集
+     * @param readTimeoutMs 响应超时
+     * @param isSSL         是否https
+     * @return
+     * @throws IOException
+     */
+    static public HttpResult httpPost(String url, List&lt;String&gt; headers, List&lt;String&gt; paramValues,
+                                      String encoding, long readTimeoutMs, boolean isSSL) throws IOException {
+<span class="nc" id="L103">        String encodedContent = encodingParams(paramValues, encoding);</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        encodedContent = (null == encodedContent) ? &quot;&quot; : encodedContent;</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        if (Limiter.isLimit(MD5.getInstance().getMD5String(</span>
+<span class="nc" id="L106">            new StringBuilder(url).append(encodedContent).toString()))) {</span>
+<span class="nc" id="L107">            return new HttpResult(NacosException.CLIENT_OVER_THRESHOLD,</span>
+                &quot;More than client-side current limit threshold&quot;);
+        }
+<span class="nc" id="L110">        HttpURLConnection conn = null;</span>
+        try {
+<span class="nc" id="L112">            conn = (HttpURLConnection)new URL(url).openConnection();</span>
+<span class="nc" id="L113">            conn.setRequestMethod(&quot;POST&quot;);</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            conn.setConnectTimeout(ParamUtil.getConnectTimeout() &gt; 3000 ? ParamUtil.getConnectTimeout() : 3000);</span>
+<span class="nc" id="L115">            conn.setReadTimeout((int)readTimeoutMs);</span>
+<span class="nc" id="L116">            conn.setDoOutput(true);</span>
+<span class="nc" id="L117">            conn.setDoInput(true);</span>
+<span class="nc" id="L118">            List&lt;String&gt; newHeaders = getHeaders(url, headers, paramValues);</span>
+<span class="nc" id="L119">            setHeaders(conn, newHeaders, encoding);</span>
+
+<span class="nc" id="L121">            conn.getOutputStream().write(encodedContent.getBytes(encoding));</span>
+
+<span class="nc" id="L123">            int respCode = conn.getResponseCode();</span>
+<span class="nc" id="L124">            String resp = null;</span>
+
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            if (HttpURLConnection.HTTP_OK == respCode) {</span>
+<span class="nc" id="L127">                resp = IOUtils.toString(conn.getInputStream(), encoding);</span>
+            } else {
+<span class="nc" id="L129">                resp = IOUtils.toString(conn.getErrorStream(), encoding);</span>
+            }
+<span class="nc" id="L131">            return new HttpResult(respCode, conn.getHeaderFields(), resp);</span>
+        } finally {
+<span class="nc bnc" id="L133" title="All 4 branches missed.">            if (null != conn) {</span>
+<span class="nc" id="L134">                conn.disconnect();</span>
+            }
+<span class="nc" id="L136">        }</span>
+    }
+
+    /**
+     * 发送POST请求。
+     *
+     * @param url
+     * @param headers       请求Header，可以为null
+     * @param paramValues   参数，可以为null
+     * @param encoding      URL编码使用的字符集
+     * @param readTimeoutMs 响应超时
+     * @return
+     * @throws IOException
+     */
+    static public HttpResult httpPost(String url, List&lt;String&gt; headers, List&lt;String&gt; paramValues, String encoding,
+                                      long readTimeoutMs) throws IOException {
+<span class="nc" id="L152">        return httpPost(url, headers, paramValues, encoding, readTimeoutMs, false);</span>
+    }
+
+    static public HttpResult httpDelete(String url, List&lt;String&gt; headers, List&lt;String&gt; paramValues,
+                                        String encoding, long readTimeoutMs, boolean isSSL) throws IOException {
+<span class="nc" id="L157">        String encodedContent = encodingParams(paramValues, encoding);</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        url += (null == encodedContent) ? &quot;&quot; : (&quot;?&quot; + encodedContent);</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (Limiter.isLimit(MD5.getInstance().getMD5String(</span>
+<span class="nc" id="L160">            new StringBuilder(url).append(encodedContent).toString()))) {</span>
+<span class="nc" id="L161">            return new HttpResult(NacosException.CLIENT_OVER_THRESHOLD,</span>
+                &quot;More than client-side current limit threshold&quot;);
+        }
+
+<span class="nc" id="L165">        HttpURLConnection conn = null;</span>
+
+        try {
+<span class="nc" id="L168">            conn = (HttpURLConnection)new URL(url).openConnection();</span>
+<span class="nc" id="L169">            conn.setRequestMethod(&quot;DELETE&quot;);</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">            conn.setConnectTimeout(ParamUtil.getConnectTimeout() &gt; 100 ? ParamUtil.getConnectTimeout() : 100);</span>
+<span class="nc" id="L171">            conn.setReadTimeout((int)readTimeoutMs);</span>
+<span class="nc" id="L172">            List&lt;String&gt; newHeaders = getHeaders(url, headers, paramValues);</span>
+<span class="nc" id="L173">            setHeaders(conn, newHeaders, encoding);</span>
+
+<span class="nc" id="L175">            conn.connect();</span>
+
+<span class="nc" id="L177">            int respCode = conn.getResponseCode();</span>
+<span class="nc" id="L178">            String resp = null;</span>
+
+<span class="nc bnc" id="L180" title="All 2 branches missed.">            if (HttpURLConnection.HTTP_OK == respCode) {</span>
+<span class="nc" id="L181">                resp = IOUtils.toString(conn.getInputStream(), encoding);</span>
+            } else {
+<span class="nc" id="L183">                resp = IOUtils.toString(conn.getErrorStream(), encoding);</span>
+            }
+<span class="nc" id="L185">            return new HttpResult(respCode, conn.getHeaderFields(), resp);</span>
+        } finally {
+<span class="nc bnc" id="L187" title="All 4 branches missed.">            if (conn != null) {</span>
+<span class="nc" id="L188">                conn.disconnect();</span>
+            }
+<span class="nc" id="L190">        }</span>
+    }
+
+    static public HttpResult httpDelete(String url, List&lt;String&gt; headers, List&lt;String&gt; paramValues, String encoding,
+                                        long readTimeoutMs) throws IOException {
+<span class="nc" id="L195">        return httpGet(url, headers, paramValues, encoding, readTimeoutMs, false);</span>
+    }
+
+    static private void setHeaders(HttpURLConnection conn, List&lt;String&gt; headers, String encoding) {
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        if (null != headers) {</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">            for (Iterator&lt;String&gt; iter = headers.iterator(); iter.hasNext(); ) {</span>
+<span class="nc" id="L201">                conn.addRequestProperty(iter.next(), iter.next());</span>
+            }
+        }
+<span class="nc" id="L204">        conn.addRequestProperty(&quot;Client-Version&quot;, ParamUtil.getClientVersion());</span>
+<span class="nc" id="L205">        conn.addRequestProperty(&quot;Content-Type&quot;, &quot;application/x-www-form-urlencoded;charset=&quot; + encoding);</span>
+
+<span class="nc" id="L207">        String ts = String.valueOf(System.currentTimeMillis());</span>
+<span class="nc" id="L208">        String token = MD5.getInstance().getMD5String(ts + ParamUtil.getAppKey());</span>
+
+<span class="nc" id="L210">        conn.addRequestProperty(Constants.CLIENT_APPNAME_HEADER, ParamUtil.getAppName());</span>
+<span class="nc" id="L211">        conn.addRequestProperty(Constants.CLIENT_REQUEST_TS_HEADER, ts);</span>
+<span class="nc" id="L212">        conn.addRequestProperty(Constants.CLIENT_REQUEST_TOKEN_HEADER, token);</span>
+<span class="nc" id="L213">    }</span>
+
+    private static List&lt;String&gt; getHeaders(String url, List&lt;String&gt; headers, List&lt;String&gt; paramValues)
+        throws IOException {
+<span class="nc" id="L217">        List&lt;String&gt; newHeaders = new ArrayList&lt;String&gt;();</span>
+<span class="nc" id="L218">        newHeaders.add(&quot;exConfigInfo&quot;);</span>
+<span class="nc" id="L219">        newHeaders.add(&quot;true&quot;);</span>
+<span class="nc" id="L220">        newHeaders.add(&quot;RequestId&quot;);</span>
+<span class="nc" id="L221">        newHeaders.add(UuidUtils.generateUuid());</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">        if (headers != null) {</span>
+<span class="nc" id="L223">            newHeaders.addAll(headers);</span>
+        }
+<span class="nc" id="L225">        return newHeaders;</span>
+    }
+
+    static private String encodingParams(List&lt;String&gt; paramValues, String encoding)
+        throws UnsupportedEncodingException {
+<span class="nc" id="L230">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc bnc" id="L231" title="All 2 branches missed.">        if (null == paramValues) {</span>
+<span class="nc" id="L232">            return null;</span>
+        }
+
+<span class="nc bnc" id="L235" title="All 2 branches missed.">        for (Iterator&lt;String&gt; iter = paramValues.iterator(); iter.hasNext(); ) {</span>
+<span class="nc" id="L236">            sb.append(iter.next()).append(&quot;=&quot;);</span>
+<span class="nc" id="L237">            sb.append(URLEncoder.encode(iter.next(), encoding));</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">            if (iter.hasNext()) {</span>
+<span class="nc" id="L239">                sb.append(&quot;&amp;&quot;);</span>
+            }
+        }
+<span class="nc" id="L242">        return sb.toString();</span>
+    }
+
+    static public class HttpResult {
+        final public int code;
+        final public Map&lt;String, List&lt;String&gt;&gt; headers;
+        final public String content;
+
+<span class="nc" id="L250">        public HttpResult(int code, String content) {</span>
+<span class="nc" id="L251">            this.code = code;</span>
+<span class="nc" id="L252">            this.headers = null;</span>
+<span class="nc" id="L253">            this.content = content;</span>
+<span class="nc" id="L254">        }</span>
+
+<span class="nc" id="L256">        public HttpResult(int code, Map&lt;String, List&lt;String&gt;&gt; headers, String content) {</span>
+<span class="nc" id="L257">            this.code = code;</span>
+<span class="nc" id="L258">            this.headers = headers;</span>
+<span class="nc" id="L259">            this.content = content;</span>
+<span class="nc" id="L260">        }</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>

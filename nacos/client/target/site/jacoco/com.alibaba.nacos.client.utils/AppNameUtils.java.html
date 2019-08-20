@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AppNameUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">nacos-client 1.1.3</a> &gt; <a href="index.source.html" class="el_package">com.alibaba.nacos.client.utils</a> &gt; <span class="el_source">AppNameUtils.java</span></div><h1>AppNameUtils.java</h1><pre class="source lang-java linenums">/*
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.alibaba.nacos.client.utils;
+
+import java.io.File;
+
+/**
+ * appName util
+ *
+ * @author Nacos
+ */
+<span class="nc" id="L25">public class AppNameUtils {</span>
+
+    private static final String PARAM_MARKING_PROJECT = &quot;project.name&quot;;
+    private static final String PARAM_MARKING_JBOSS = &quot;jboss.server.home.dir&quot;;
+    private static final String PARAM_MARKING_JETTY = &quot;jetty.home&quot;;
+    private static final String PARAM_MARKING_TOMCAT = &quot;catalina.base&quot;;
+
+    private static final String LINUX_ADMIN_HOME = &quot;/home/admin/&quot;;
+    private static final String SERVER_JBOSS = &quot;jboss&quot;;
+    private static final String SERVER_JETTY = &quot;jetty&quot;;
+    private static final String SERVER_TOMCAT = &quot;tomcat&quot;;
+    private static final String SERVER_UNKNOWN = &quot;unknown server&quot;;
+
+    public static String getAppName() {
+<span class="nc" id="L39">        String appName = null;</span>
+
+<span class="nc" id="L41">        appName = getAppNameByProjectName();</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">        if (appName != null) {</span>
+<span class="nc" id="L43">            return appName;</span>
+        }
+
+<span class="nc" id="L46">        appName = getAppNameByServerHome();</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        if (appName != null) {</span>
+<span class="nc" id="L48">            return appName;</span>
+        }
+
+<span class="nc" id="L51">        return &quot;unknown&quot;;</span>
+    }
+
+    private static String getAppNameByProjectName() {
+<span class="nc" id="L55">        return System.getProperty(PARAM_MARKING_PROJECT);</span>
+    }
+
+    private static String getAppNameByServerHome() {
+<span class="nc" id="L59">        String serverHome = null;</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (SERVER_JBOSS.equals(getServerType())) {</span>
+<span class="nc" id="L61">            serverHome = System.getProperty(PARAM_MARKING_JBOSS);</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        } else if (SERVER_JETTY.equals(getServerType())) {</span>
+<span class="nc" id="L63">            serverHome = System.getProperty(PARAM_MARKING_JETTY);</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        } else if (SERVER_TOMCAT.equals(getServerType())) {</span>
+<span class="nc" id="L65">            serverHome = System.getProperty(PARAM_MARKING_TOMCAT);</span>
+        }
+
+<span class="nc bnc" id="L68" title="All 4 branches missed.">        if (serverHome != null &amp;&amp; serverHome.startsWith(LINUX_ADMIN_HOME)) {</span>
+<span class="nc" id="L69">            return StringUtils.substringBetween(serverHome, LINUX_ADMIN_HOME, File.separator);</span>
+        }
+
+<span class="nc" id="L72">        return null;</span>
+    }
+
+    private static String getServerType() {
+<span class="nc" id="L76">        String serverType = null;</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (System.getProperty(PARAM_MARKING_JBOSS) != null) {</span>
+<span class="nc" id="L78">            serverType = SERVER_JBOSS;</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        } else if (System.getProperty(PARAM_MARKING_JETTY) != null) {</span>
+<span class="nc" id="L80">            serverType = SERVER_JETTY;</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        } else if (System.getProperty(PARAM_MARKING_TOMCAT) != null) {</span>
+<span class="nc" id="L82">            serverType = SERVER_TOMCAT;</span>
+        } else {
+<span class="nc" id="L84">            serverType = SERVER_UNKNOWN;</span>
+        }
+<span class="nc" id="L86">        return serverType;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.8.201612092310</span></div></body></html>
