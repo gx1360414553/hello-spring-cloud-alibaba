@@ -5,14 +5,14 @@ spring:
     nacos:
       discovery:
         server-addr: 127.0.0.1:8848
-
-server:
-  port: 9092
-  cloud:
     sentinel:
       transport:
         port: 8719
         dashboard: localhost:8080
+
+server:
+  port: 9092
+
 feign:
   sentinel:
     enabled: true
