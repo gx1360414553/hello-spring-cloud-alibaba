@@ -1,0 +1,8 @@
+2019-08-21 08:36:51,427 INFO DEFAULT_GROUP@@nacos-provider {SYNC} {IP-NEW} cluster: DEFAULT, new ips size: 1, content: [192.168.214.1:8081:unknown:DEFAULT_1.0_true_false_DEFAULT]
+
+2019-08-21 08:36:51,431 INFO [IP-UPDATED] namespace: public, service: DEFAULT_GROUP@@nacos-provider, ips: 192.168.214.1:8081_true,
+
+2019-08-21 09:04:56,487 INFO DEFAULT_GROUP@@nacos-consumer {SYNC} {IP-NEW} cluster: DEFAULT, new ips size: 1, content: [192.168.214.1:9091:unknown:DEFAULT_1.0_true_false_DEFAULT]
+
+2019-08-21 09:04:56,487 INFO [IP-UPDATED] namespace: public, service: DEFAULT_GROUP@@nacos-consumer, ips: 192.168.214.1:9091_true,
+

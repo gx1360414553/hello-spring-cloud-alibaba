@@ -1,11 +1,11 @@
 ----------------------------------------------------------------
-Tue Aug 20 18:08:47 CST 2019:
-Booting Derby version The Apache Software Foundation - Apache Derby - 10.10.1.1 - (1458268): instance a816c00e-016c-ae80-1d3c-00000dcc7148 
-on database directory E:\workspace\study\nacos\distribution\target\nacos-server-1.1.3\nacos\data\derby-data with class loader org.springframework.boot.loader.LaunchedURLClassLoader@2e0fa5d3 
-Loaded from jar:file:/E:/workspace/study/nacos/distribution/target/nacos-server-1.1.3/nacos/target/nacos-server.jar!/BOOT-INF/lib/derby-10.10.1.1.jar!/
+Wed Aug 21 08:35:36 CST 2019:
+Booting Derby version The Apache Software Foundation - Apache Derby - 10.10.1.1 - (1458268): instance a816c00e-016c-b199-b4fa-00001aaa85c8 
+on database directory E:\workspace\hello-spring-cloud-alibaba\nacos\distribution\target\nacos-server-1.1.3\nacos\data\derby-data with class loader org.springframework.boot.loader.LaunchedURLClassLoader@2e0fa5d3 
+Loaded from jar:file:/E:/workspace/hello-spring-cloud-alibaba/nacos/distribution/target/nacos-server-1.1.3/nacos/target/nacos-server.jar!/BOOT-INF/lib/derby-10.10.1.1.jar!/
 java.vendor=Oracle Corporation
 java.runtime.version=1.8.0_212-b10
-user.dir=E:\workspace\study\nacos\distribution\target\nacos-server-1.1.3\nacos\bin
+user.dir=E:\workspace\hello-spring-cloud-alibaba\nacos\distribution\target\nacos-server-1.1.3\nacos\bin
 os.name=Windows 10
 os.arch=amd64
 os.version=10.0

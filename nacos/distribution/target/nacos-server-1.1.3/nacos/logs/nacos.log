@@ -1,90 +1,116 @@
-2019-08-20 18:08:42,649 INFO Starting Nacos v1.1.3 on DESKTOP-NNV9U0J with PID 17364 (E:\workspace\study\nacos\distribution\target\nacos-server-1.1.3\nacos\target\nacos-server.jar started by gaoxiong in E:\workspace\study\nacos\distribution\target\nacos-server-1.1.3\nacos\bin)
+2019-08-21 08:35:31,115 INFO Starting Nacos v1.1.3 on DESKTOP-NNV9U0J with PID 14688 (E:\workspace\hello-spring-cloud-alibaba\nacos\distribution\target\nacos-server-1.1.3\nacos\target\nacos-server.jar started by gaoxiong in E:\workspace\hello-spring-cloud-alibaba\nacos\distribution\target\nacos-server-1.1.3\nacos\bin)
 
-2019-08-20 18:08:42,649 INFO The following profiles are active: standalone
+2019-08-21 08:35:31,120 INFO The following profiles are active: standalone
 
-2019-08-20 18:08:44,922 INFO Bean 'org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration' of type [org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration$$EnhancerBySpringCGLIB$$f54a0594] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2019-08-21 08:35:33,743 INFO Bean 'org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration' of type [org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration$$EnhancerBySpringCGLIB$$1aac0529] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
 
-2019-08-20 18:08:45,019 INFO Bean 'objectPostProcessor' of type [org.springframework.security.config.annotation.configuration.AutowireBeanFactoryObjectPostProcessor] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2019-08-21 08:35:33,858 INFO Bean 'objectPostProcessor' of type [org.springframework.security.config.annotation.configuration.AutowireBeanFactoryObjectPostProcessor] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
 
-2019-08-20 18:08:45,029 INFO Bean 'org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler@76b1e9b8' of type [org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2019-08-21 08:35:33,861 INFO Bean 'org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler@53fe15ff' of type [org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
 
-2019-08-20 18:08:45,029 INFO Bean 'org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration' of type [org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration$$EnhancerBySpringCGLIB$$1a1ea846] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2019-08-21 08:35:33,865 INFO Bean 'org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration' of type [org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration$$EnhancerBySpringCGLIB$$3f80a7db] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
 
-2019-08-20 18:08:45,039 INFO Bean 'methodSecurityMetadataSource' of type [org.springframework.security.access.method.DelegatingMethodSecurityMetadataSource] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2019-08-21 08:35:33,872 INFO Bean 'methodSecurityMetadataSource' of type [org.springframework.security.access.method.DelegatingMethodSecurityMetadataSource] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
 
-2019-08-20 18:08:45,940 INFO Tomcat initialized with port(s): 8848 (http)
+2019-08-21 08:35:35,049 INFO Tomcat initialized with port(s): 8848 (http)
 
-2019-08-20 18:08:45,980 INFO Starting service [Tomcat]
+2019-08-21 08:35:35,083 INFO Starting service [Tomcat]
 
-2019-08-20 18:08:45,980 INFO Starting Servlet Engine: Apache Tomcat/9.0.13
+2019-08-21 08:35:35,083 INFO Starting Servlet Engine: Apache Tomcat/9.0.13
 
-2019-08-20 18:08:45,990 INFO The APR based Apache Tomcat Native library which allows optimal performance in production environments was not found on the java.library.path: [C:\Program Files\Java\jdk1.8.0_212\bin;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;F:\app\root\product\12.2.0\dbhome_1\bin;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\Java\jdk1.8.0_212\bin;C:\Program Files\Java\jdk1.8.0_212\jre\bin;E:\Program Files\Git\cmd;%MYSQL%\bin;C:\Program Files (x86)\MySQL\MySQL Fabric 1.5 & MySQL Utilities 1.5\;C:\Program Files (x86)\MySQL\MySQL Fabric 1.5 & MySQL Utilities 1.5\Doctrine extensions for PHP\;C:\Program Files\erl10.4\bin;E:\maven\apache-maven-3.6.1\bin;C:\Program Files (x86)\Microsoft Visual Studio\Common\Tools\WinNT;C:\Program Files (x86)\Microsoft Visual Studio\Common\MSDev98\Bin;C:\Program Files (x86)\Microsoft Visual Studio\Common\Tools;C:\Program Files (x86)\Microsoft Visual Studio\VC98\bin;%USERPROFILE%\AppData\Local\Microsoft\WindowsApps;;.]
+2019-08-21 08:35:35,096 INFO The APR based Apache Tomcat Native library which allows optimal performance in production environments was not found on the java.library.path: [C:\Program Files\Java\jdk1.8.0_212\bin;C:\Windows\Sun\Java\bin;C:\Windows\system32;C:\Windows;F:\app\root\product\12.2.0\dbhome_1\bin;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\Java\jdk1.8.0_212\bin;C:\Program Files\Java\jdk1.8.0_212\jre\bin;E:\Program Files\Git\cmd;%MYSQL%\bin;C:\Program Files (x86)\MySQL\MySQL Fabric 1.5 & MySQL Utilities 1.5\;C:\Program Files (x86)\MySQL\MySQL Fabric 1.5 & MySQL Utilities 1.5\Doctrine extensions for PHP\;C:\Program Files\erl10.4\bin;E:\maven\apache-maven-3.6.1\bin;C:\Program Files (x86)\Microsoft Visual Studio\Common\Tools\WinNT;C:\Program Files (x86)\Microsoft Visual Studio\Common\MSDev98\Bin;C:\Program Files (x86)\Microsoft Visual Studio\Common\Tools;C:\Program Files (x86)\Microsoft Visual Studio\VC98\bin;%USERPROFILE%\AppData\Local\Microsoft\WindowsApps;;.]
 
-2019-08-20 18:08:46,107 INFO Initializing Spring embedded WebApplicationContext
+2019-08-21 08:35:35,199 INFO Initializing Spring embedded WebApplicationContext
 
-2019-08-20 18:08:46,107 INFO Root WebApplicationContext: initialization completed in 3402 ms
+2019-08-21 08:35:35,199 INFO Root WebApplicationContext: initialization completed in 4021 ms
 
-2019-08-20 18:08:50,061 INFO Use Mysql as the driver
+2019-08-21 08:35:39,032 INFO Use Mysql as the driver
 
-2019-08-20 18:08:51,216 INFO Initializing ExecutorService 'applicationTaskExecutor'
+2019-08-21 08:35:39,679 INFO Initializing ExecutorService 'applicationTaskExecutor'
 
-2019-08-20 18:08:53,286 INFO Adding welcome page: class path resource [static/index.html]
+2019-08-21 08:35:40,185 INFO Adding welcome page: class path resource [static/index.html]
 
-2019-08-20 18:08:56,002 INFO Creating filter chain: Ant [pattern='/'], []
+2019-08-21 08:35:40,648 INFO Creating filter chain: Ant [pattern='/'], []
 
-2019-08-20 18:08:56,045 INFO Creating filter chain: Ant [pattern='/**/*.css'], []
+2019-08-21 08:35:40,650 INFO Creating filter chain: Ant [pattern='/**/*.css'], []
 
-2019-08-20 18:08:56,069 INFO Creating filter chain: Ant [pattern='/**/*.js'], []
+2019-08-21 08:35:40,652 INFO Creating filter chain: Ant [pattern='/**/*.js'], []
 
-2019-08-20 18:08:56,087 INFO Creating filter chain: Ant [pattern='/**/*.html'], []
+2019-08-21 08:35:40,652 INFO Creating filter chain: Ant [pattern='/**/*.html'], []
 
-2019-08-20 18:08:56,097 INFO Creating filter chain: Ant [pattern='/**/*.map'], []
+2019-08-21 08:35:40,653 INFO Creating filter chain: Ant [pattern='/**/*.map'], []
 
-2019-08-20 18:08:56,123 INFO Creating filter chain: Ant [pattern='/**/*.svg'], []
+2019-08-21 08:35:40,654 INFO Creating filter chain: Ant [pattern='/**/*.svg'], []
 
-2019-08-20 18:08:56,131 INFO Creating filter chain: Ant [pattern='/**/*.png'], []
+2019-08-21 08:35:40,655 INFO Creating filter chain: Ant [pattern='/**/*.png'], []
 
-2019-08-20 18:08:56,134 INFO Creating filter chain: Ant [pattern='/**/*.ico'], []
+2019-08-21 08:35:40,656 INFO Creating filter chain: Ant [pattern='/**/*.ico'], []
 
-2019-08-20 18:08:56,141 INFO Creating filter chain: Ant [pattern='/console-fe/public/**'], []
+2019-08-21 08:35:40,656 INFO Creating filter chain: Ant [pattern='/console-fe/public/**'], []
 
-2019-08-20 18:08:56,144 INFO Creating filter chain: Ant [pattern='/v1/auth/login'], []
+2019-08-21 08:35:40,657 INFO Creating filter chain: Ant [pattern='/v1/auth/login'], []
 
-2019-08-20 18:08:56,154 INFO Creating filter chain: Ant [pattern='/v1/console/health/**'], []
+2019-08-21 08:35:40,657 INFO Creating filter chain: Ant [pattern='/v1/console/health/**'], []
 
-2019-08-20 18:08:56,160 INFO Creating filter chain: Ant [pattern='/v1/cs/**'], []
+2019-08-21 08:35:40,657 INFO Creating filter chain: Ant [pattern='/v1/cs/**'], []
 
-2019-08-20 18:08:56,167 INFO Creating filter chain: Ant [pattern='/v1/ns/**'], []
+2019-08-21 08:35:40,658 INFO Creating filter chain: Ant [pattern='/v1/ns/**'], []
 
-2019-08-20 18:08:56,170 INFO Creating filter chain: Ant [pattern='/v1/cmdb/**'], []
+2019-08-21 08:35:40,665 INFO Creating filter chain: Ant [pattern='/v1/cmdb/**'], []
 
-2019-08-20 18:08:56,175 INFO Creating filter chain: Ant [pattern='/actuator/**'], []
+2019-08-21 08:35:40,665 INFO Creating filter chain: Ant [pattern='/actuator/**'], []
 
-2019-08-20 18:08:56,183 INFO Creating filter chain: Ant [pattern='/v1/console/server/**'], []
+2019-08-21 08:35:40,666 INFO Creating filter chain: Ant [pattern='/v1/console/server/**'], []
 
-2019-08-20 18:08:56,247 INFO Creating filter chain: any request, [org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@6a66a204, org.springframework.security.web.context.SecurityContextPersistenceFilter@e260766, org.springframework.security.web.header.HeaderWriterFilter@51850751, org.springframework.security.web.authentication.logout.LogoutFilter@2cac4385, com.alibaba.nacos.console.filter.JwtAuthenticationTokenFilter@5860f3d7, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@34a97744, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@3fc9dfc5, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@1d7f7be7, org.springframework.security.web.session.SessionManagementFilter@64df9a61, org.springframework.security.web.access.ExceptionTranslationFilter@5ef0d29e, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@4e517165]
+2019-08-21 08:35:40,704 INFO Creating filter chain: any request, [org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@e98770d, org.springframework.security.web.context.SecurityContextPersistenceFilter@47c4ecdc, org.springframework.security.web.header.HeaderWriterFilter@4795ded0, org.springframework.security.web.authentication.logout.LogoutFilter@7096b474, com.alibaba.nacos.console.filter.JwtAuthenticationTokenFilter@1ae67cad, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@5c8504fd, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@3f07b12c, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@2f6e28bc, org.springframework.security.web.session.SessionManagementFilter@14d14731, org.springframework.security.web.access.ExceptionTranslationFilter@5a85c92, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@57ac5227]
 
-2019-08-20 18:08:56,307 INFO Exposing 2 endpoint(s) beneath base path '/actuator'
+2019-08-21 08:35:40,753 INFO Exposing 2 endpoint(s) beneath base path '/actuator'
 
-2019-08-20 18:08:56,346 INFO Initializing ExecutorService 'taskScheduler'
+2019-08-21 08:35:40,788 INFO Initializing ExecutorService 'taskScheduler'
 
-2019-08-20 18:08:56,514 INFO Tomcat started on port(s): 8848 (http) with context path '/nacos'
+2019-08-21 08:35:40,900 INFO Tomcat started on port(s): 8848 (http) with context path '/nacos'
 
-2019-08-20 18:08:56,519 INFO Started Nacos in 15.59 seconds (JVM running for 16.361)
+2019-08-21 08:35:40,907 INFO Started Nacos in 11.242 seconds (JVM running for 12.028)
 
-2019-08-20 18:08:56,520 INFO Nacos Log files: E:\workspace\study\nacos\distribution\target\nacos-server-1.1.3\nacos/logs/
+2019-08-21 08:35:40,907 INFO Nacos Log files: E:\workspace\hello-spring-cloud-alibaba\nacos\distribution\target\nacos-server-1.1.3\nacos/logs/
 
-2019-08-20 18:08:56,520 INFO Nacos Conf files: E:\workspace\study\nacos\distribution\target\nacos-server-1.1.3\nacos/conf/
+2019-08-21 08:35:40,907 INFO Nacos Conf files: E:\workspace\hello-spring-cloud-alibaba\nacos\distribution\target\nacos-server-1.1.3\nacos/conf/
 
-2019-08-20 18:08:56,520 INFO Nacos Data files: E:\workspace\study\nacos\distribution\target\nacos-server-1.1.3\nacos/data/
+2019-08-21 08:35:40,908 INFO Nacos Data files: E:\workspace\hello-spring-cloud-alibaba\nacos\distribution\target\nacos-server-1.1.3\nacos/data/
 
-2019-08-20 18:08:56,521 INFO Nacos started successfully in stand alone mode.
+2019-08-21 08:35:40,909 INFO Nacos started successfully in stand alone mode.
 
-2019-08-20 18:09:00,200 INFO Initializing Spring DispatcherServlet 'dispatcherServlet'
+2019-08-21 08:35:44,009 INFO Initializing Spring DispatcherServlet 'dispatcherServlet'
 
-2019-08-20 18:09:00,200 INFO Initializing Servlet 'dispatcherServlet'
+2019-08-21 08:35:44,010 INFO Initializing Servlet 'dispatcherServlet'
 
-2019-08-20 18:09:00,212 INFO Completed initialization in 10 ms
+2019-08-21 08:35:44,023 INFO Completed initialization in 13 ms
 
-2019-08-20 18:09:09,726 ERROR Responding with unauthorized error. Message - Full authentication is required to access this resource
+2019-08-21 08:35:49,880 INFO Expired JWT token.
+
+2019-08-21 08:35:49,897 ERROR Responding with unauthorized error. Message - Full authentication is required to access this resource
+
+2019-08-21 08:45:37,644 INFO [capacityManagement] start correct usage
+
+2019-08-21 08:45:37,680 INFO [capacityManagement] end correct usage, cost: 0s
+
+2019-08-21 08:45:37,813 WARN clearConfigHistory start
+
+2019-08-21 08:55:37,681 INFO [capacityManagement] start correct usage
+
+2019-08-21 08:55:37,682 INFO [capacityManagement] end correct usage, cost: 0s
+
+2019-08-21 08:55:37,826 WARN clearConfigHistory start
+
+2019-08-21 09:05:37,683 INFO [capacityManagement] start correct usage
+
+2019-08-21 09:05:37,686 INFO [capacityManagement] end correct usage, cost: 0s
+
+2019-08-21 09:05:37,830 WARN clearConfigHistory start
+
+2019-08-21 09:15:37,688 INFO [capacityManagement] start correct usage
+
+2019-08-21 09:15:37,692 INFO [capacityManagement] end correct usage, cost: 0s
+
+2019-08-21 09:15:37,833 WARN clearConfigHistory start
 
