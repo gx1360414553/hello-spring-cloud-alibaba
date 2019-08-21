@@ -17,7 +17,7 @@ public class NacosConsumerFeignController {
     @Autowired
     private EchoService echoService;
 
-    @GetMapping(value = "/echo/hi")
+    @GetMapping(value = "/echo")
     public String echo() {
         return echoService.echo("Hi Feign");
     }

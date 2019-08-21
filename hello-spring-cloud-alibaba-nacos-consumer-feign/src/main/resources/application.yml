@@ -8,7 +8,14 @@ spring:
 
 server:
   port: 9092
-
+  cloud:
+    sentinel:
+      transport:
+        port: 8719
+        dashboard: localhost:8080
+feign:
+  sentinel:
+    enabled: true
 management:
   endpoints:
     web:
