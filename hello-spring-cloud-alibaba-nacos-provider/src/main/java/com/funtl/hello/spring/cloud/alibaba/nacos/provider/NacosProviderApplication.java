@@ -20,11 +20,5 @@ public class NacosProviderApplication {
         SpringApplication.run(NacosProviderApplication.class, args);
     }
 
-    @RestController
-    public class EchoController {
-        @GetMapping(value = "/echo/{message}")
-        public String echo(@PathVariable String message) {
-            return "Hello Nacos Discovery " + message;
-        }
-    }
+
 }
